@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.0
+
+- **Crew mode.** A planner (Opus 5.5, medium) splits your request into tasks and hands each one to the cheapest helper that can do it: a Haiku scout for reading, Sonnet 5 at medium, high and xhigh, and Opus 5.5 at low, medium, high and xhigh. If a helper fails, the task moves up a level. You see the plan first and press Go. Helper runs show with their level, tokens and time, and the Crew card shows the plan, escalations like S3 → O1, and cost per model. Turn it on per session from the header pill, the Crew button on the start page, or "crew session" in the Riced launcher.
+- **Crew editor.** Change any level's model, effort or job, how many times a task can escalate, and whether you approve the plan first. It also shows per-level stats (runs, how often each level got escalated, average tokens) so the ladder can be tuned from real data.
+
 ## 0.4.1
 
 - **Easier to read in Riced.** Your prompts are tinted blocks in your accent colour with a rule above each turn, tool calls sit together in their own darker box, and Claude's replies get an orange bullet.

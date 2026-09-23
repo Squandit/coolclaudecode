@@ -155,8 +155,8 @@ function refreshAgos() {
   }
 }
 
-async function createSession(cwd, prompt) {
-  const s = await api('POST', '/sessions', { cwd, prompt });
+async function createSession(cwd, prompt, crew) {
+  const s = await api('POST', '/sessions', { cwd, prompt, crew: !!crew });
   st.sessions.set(s.id, s);
   loadProjects();
   return s;

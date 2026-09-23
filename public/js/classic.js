@@ -321,6 +321,7 @@ const Classic = {
           <div class="starter-bar">
             <label class="folder-field" title="Folder Claude works in">${ICON.folder}<input id="start-folder" list="folders" spellcheck="false" placeholder="${esc(st.settings.defaultCwd || recentFolder || st.home)}" value="${esc(st.settings.defaultCwd || '')}"></label>
             <datalist id="folders"></datalist>
+            <button class="btn crew-toggle ${store.get('crewStart', false) ? 'on' : ''}" id="start-crew" title="Crew: a planner hands tasks to helpers by difficulty">${ICON.agent} Crew</button>
             <button class="btn" id="resume-last" ${sessionsSorted().length ? '' : 'disabled'}>Resume last</button>
             <button class="btn primary" id="start-go">Start <kbd>${/Mac/.test(navigator.platform) ? '⌘' : 'Ctrl'} ⏎</kbd></button>
           </div>
@@ -332,12 +333,13 @@ const Classic = {
       const btn = $('#start-go');
       btn.disabled = true;
       try {
-        const s = await createSession($('#start-folder').value.trim() || undefined, $('#start-text').value.trim() || undefined);
+        const s = await createSession($('#start-folder').value.trim() || undefined, $('#start-text').value.trim() || undefined, store.get('crewStart', false));
         location.hash = '#/s/' + s.id;
       } catch (err) { toast(err.message); btn.disabled = false; }
     };
     $('#start-go').onclick = go;
     $('#start-text').onkeydown = (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); go(); } };
+    $('#start-crew').onclick = (e) => { const on = !store.get('crewStart', false); store.set('crewStart', on); e.currentTarget.classList.toggle('on', on); };
     $('#resume-last').onclick = () => { const s = sessionsSorted()[0]; if (s) location.hash = '#/s/' + s.id; };
     $('[data-side]', main).onclick = () => $('#app').classList.add('side-open');
     this.renderHomeLists();
@@ -421,6 +423,10 @@ const Classic = {
           <div class="set-row"><label>Editor<small>Leave empty to use <span class="mono">$EDITOR</span></small></label><input class="text-in" data-text="editor" value="${esc(s.editor || '')}" placeholder="${esc(Terms.info.editor || 'nvim')}" spellcheck="false"></div>
           <div class="set-row"><label>Shell<small>Leave empty for your login shell</small></label><input class="text-in" data-text="shell" value="${esc(s.shell || '')}" placeholder="${esc(Terms.info.shell || '')}" spellcheck="false"></div>
           ${Terms.info.available ? '' : `<div class="set-row"><label>Status</label><span style="color:var(--bad)">Off: node-pty is ${esc(Terms.info.error || 'missing')}. Run <span class="mono">npm install</span> and restart.</span></div>`}
+        </div>
+
+        <div class="set-group"><h2>Crew</h2><p>A planner (${esc(((s.crew || {}).planner || {}).model || 'opus')}) splits the work and hands each task to the cheapest helper that can do it. Turn it on per session with the crew pill in the header, or the Crew button when you start one.</p>
+          <button class="btn" data-crew-edit>${ICON.agent} Edit the crew</button>
         </div>
 
         <div class="set-group"><h2>Shortcuts</h2><p>The modifier is <b>${esc(Keys.mod().label)}</b>. If your window manager (GlazeWM, i3, Hyprland…) already uses it, pick another or rebind single keys.</p>

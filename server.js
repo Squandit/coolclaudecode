@@ -12,6 +12,7 @@ const readline = require('readline');
 const { spawn, execFile } = require('child_process');
 const { createTerminals } = require('./lib/terminals');
 const gitInfo = require('./lib/git');
+const crewLib = require('./lib/crew');
 
 const DEMO = process.argv.includes('--demo');
 const PORT = Number(process.env.PORT || argValue('--port') || 4317);
@@ -56,6 +57,7 @@ const DEFAULT_SETTINGS = {
   editor: '',
   shell: '',
   keys: { mod: 'alt', binds: {} },
+  crew: crewLib.DEFAULT_CREW,
 };
 let settings = { ...DEFAULT_SETTINGS, ...readJSON('settings.json', {}) };
 let sessions = readJSON('sessions.json', []);
@@ -147,9 +149,19 @@ function claudeArgs(s) {
     '--model', s.model, '--permission-mode', s.permission,
   ];
   if (s.effort) args.push('--effort', s.effort);
+  if (s.crew) {
+    // Crew mode: helpers as a session-only plugin, planner rules appended to the system prompt.
+    const files = crewLib.writeCrewFiles(DATA, settings.crew);
+    args.push('--plugin-dir', files.pluginDir, '--append-system-prompt-file', files.plannerFile);
+  }
   if (s.started) args.push('--resume', s.sessionId);
   else args.push('--session-id', s.sessionId);
   return args;
+}
+
+// On Windows the CLI runs through cmd.exe, which splits unquoted arguments on spaces.
+function winQuote(a) {
+  return /[\s"&|<>^()]/.test(a) ? `"${String(a).replace(/"/g, '\\"')}"` : a;
 }
 
 function startRunner(s) {
@@ -164,9 +176,9 @@ function startRunner(s) {
 
   const child = DEMO
     ? require('./demo').spawnFake(s)
-    : spawn(cmd, claudeArgs(s), { cwd: s.cwd, env, shell: IS_WIN, windowsHide: true });
+    : spawn(cmd, IS_WIN ? claudeArgs(s).map(winQuote) : claudeArgs(s), { cwd: s.cwd, env, shell: IS_WIN, windowsHide: true });
 
-  const r = { child, pending: new Map(), lastCost: 0, dead: false, stderr: '', idleTimer: null, turnOpen: false };
+  const r = { child, pending: new Map(), lastCost: 0, lastModelCost: {}, agentCalls: new Map(), dead: false, stderr: '', idleTimer: null, turnOpen: false };
   runners.set(s.id, r);
 
   const send = (obj) => { if (!r.dead) child.stdin.write(JSON.stringify(obj) + '\n'); };
@@ -279,13 +291,24 @@ function handleClaudeEvent(s, r, ev) {
       if (ev.tool_use_result !== undefined) out.result = slimToolResult(ev.tool_use_result);
       // Replayed user prompts come back as plain strings; we already stored those.
       if (ev.type === 'user' && typeof ev.message.content === 'string') return;
+      if (!out.parent) trackCrew(s, r, ev);
+      // A helper that finished in the background can restart work after the turn ended.
+      if (ev.type === 'assistant' && !out.parent && (s.status === 'done' || s.status === 'idle')) { r.turnOpen = true; touch(s, { status: 'working' }); }
       appendEvent(s, out);
       return;
     }
     case 'result': {
       const turnCost = Math.max(0, (ev.total_cost_usd || 0) - r.lastCost);
       r.lastCost = ev.total_cost_usd || 0;
-      const mu = ev.modelUsage ? Object.values(ev.modelUsage)[0] : null;
+      // Cost per model this turn (the CLI reports running totals for the process).
+      const byModel = {};
+      for (const [name, u] of Object.entries(ev.modelUsage || {})) {
+        const prev = r.lastModelCost[name] || 0;
+        const d = Math.max(0, (u.costUSD || 0) - prev);
+        r.lastModelCost[name] = u.costUSD || 0;
+        if (d > 0) byModel[shortModelName(name)] = (byModel[shortModelName(name)] || 0) + d;
+      }
+      const mu = ev.modelUsage ? (ev.modelUsage[s.modelName] || Object.values(ev.modelUsage).sort((a, b) => (b.contextWindow || 0) - (a.contextWindow || 0))[0]) : null;
       appendEvent(s, {
         type: 'result',
         subtype: ev.subtype,
@@ -294,6 +317,7 @@ function handleClaudeEvent(s, r, ev) {
         durationMs: ev.duration_ms,
         steps: ev.num_turns,
         cost: turnCost,
+        byModel,
         usage: ev.usage,
         contextWindow: mu ? mu.contextWindow : undefined,
         denials: (ev.permission_denials || []).map((d) => d.tool_name),
@@ -305,6 +329,65 @@ function handleClaudeEvent(s, r, ev) {
       return;
     }
   }
+}
+
+function shortModelName(name) {
+  const m = String(name).match(/(opus|sonnet|haiku|fable|mythos)/i);
+  return m ? m[1].toLowerCase() : name;
+}
+
+// Remember which task went to which crew level, and log how it went, so the ladder
+// can be tuned from real data (see /api/crew/stats).
+function trackCrew(s, r, ev) {
+  for (const c of ev.message.content || []) {
+    if (c.type === 'tool_use' && (c.name === 'Agent' || c.name === 'Task') && c.input && String(c.input.subagent_type || '').startsWith(crewLib.PLUGIN + ':')) {
+      r.agentCalls.set(c.id, c.input);
+    }
+    if (c.type === 'tool_result' && r.agentCalls.has(c.tool_use_id)) {
+      const input = r.agentCalls.get(c.tool_use_id);
+      r.agentCalls.delete(c.tool_use_id);
+      const res = ev.tool_use_result && typeof ev.tool_use_result === 'object' ? ev.tool_use_result : {};
+      if (res.status && res.status !== 'completed') continue;
+      const u = res.usage || {};
+      const m = String(input.description || '').match(/#(\d+)/);
+      const row = {
+        ts: Date.now(), session: s.id,
+        level: String(input.subagent_type).split(':')[1],
+        task: m ? +m[1] : null,
+        model: res.resolvedModel || null,
+        tokens: res.totalTokens || null,
+        out: u.output_tokens || null,
+        thinking: u.output_tokens_details ? u.output_tokens_details.thinking_tokens : null,
+        ms: res.totalDurationMs || null,
+        tools: res.totalToolUseCount || null,
+        error: !!c.is_error,
+      };
+      try { fs.appendFileSync(path.join(DATA, 'crew-log.jsonl'), JSON.stringify(row) + '\n'); } catch {}
+    }
+  }
+}
+
+function crewStats() {
+  let rows = [];
+  try { rows = fs.readFileSync(path.join(DATA, 'crew-log.jsonl'), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)); } catch {}
+  // A task that went to a later level after this attempt counts as escalated from it.
+  const byTask = new Map();
+  for (const r of rows) if (r.task != null) {
+    const k = r.session + '#' + r.task;
+    if (!byTask.has(k)) byTask.set(k, []);
+    byTask.get(k).push(r);
+  }
+  const escalated = new Set();
+  for (const list of byTask.values()) list.sort((a, b) => a.ts - b.ts).slice(0, -1).forEach((r) => escalated.add(r));
+  const levels = {};
+  for (const r of rows) {
+    const L = (levels[r.level] = levels[r.level] || { level: r.level, runs: 0, escalated: 0, tokens: 0, ms: 0 });
+    L.runs++;
+    if (escalated.has(r)) L.escalated++;
+    L.tokens += r.tokens || 0;
+    L.ms += r.ms || 0;
+  }
+  return { total: rows.length, levels: Object.values(levels).map((L) => ({ ...L, avgTokens: L.runs ? Math.round(L.tokens / L.runs) : 0, avgMs: L.runs ? Math.round(L.ms / L.runs) : 0 })) };
 }
 
 function sendPrompt(s, text) {
@@ -529,7 +612,7 @@ function expandPath(p) {
   return path.resolve(p);
 }
 
-function newSession({ cwd, title, sessionId, started }) {
+function newSession({ cwd, title, sessionId, started, crew }) {
   const n = sessions.reduce((m, s) => Math.max(m, s.number || 0), 0) + 1;
   const s = {
     id: crypto.randomUUID(),
@@ -537,9 +620,10 @@ function newSession({ cwd, title, sessionId, started }) {
     number: n,
     title: title || 'new session',
     cwd,
-    model: settings.model,
-    effort: settings.effort,
+    model: crew ? settings.crew.planner.model : settings.model,
+    effort: crew ? settings.crew.planner.effort : settings.effort,
     permission: settings.permission,
+    crew: !!crew,
     status: 'idle',
     started: !!started,
     open: true,
@@ -649,6 +733,12 @@ async function route(req, res, url) {
     const body = await readBody(req);
     for (const k of Object.keys(DEFAULT_SETTINGS)) if (body[k] !== undefined) settings[k] = body[k];
     if (typeof settings.rice !== 'string' || settings.rice.length > 50000) settings.rice = '';
+    settings.crew = crewLib.cleanCrew(settings.crew);
+    if (body.crew) for (const x of sessions) if (x.crew) {
+      Object.assign(x, { model: settings.crew.planner.model, effort: settings.crew.planner.effort });
+      broadcast({ kind: 'session', session: publicSession(x) });
+      restartIfIdle(x);
+    }
     const k = settings.keys;
     if (!k || typeof k !== 'object' || !['alt', 'ctrl+alt', 'alt+shift', 'ctrl+shift'].includes(k.mod)) settings.keys = { mod: 'alt', binds: {} };
     else settings.keys = { mod: k.mod, binds: Object.fromEntries(Object.entries(k.binds || {}).filter(([a, c]) => /^\w{1,20}$/.test(a) && typeof c === 'string' && c.length < 60)) };
@@ -656,6 +746,8 @@ async function route(req, res, url) {
     broadcast({ kind: 'settings', settings });
     return json(res, 200, settings);
   }
+
+  if (m === 'GET' && parts[0] === 'crew') return json(res, 200, { defaults: crewLib.DEFAULT_CREW, stats: crewStats() });
 
   if (m === 'GET' && parts[0] === 'changelog') {
     let text = '';
@@ -710,7 +802,7 @@ async function route(req, res, url) {
       const cwd = expandPath(body.cwd || settings.defaultCwd || HOME_DIR);
       if (DEMO) fs.mkdirSync(cwd, { recursive: true });
       if (!fs.existsSync(cwd) || !fs.statSync(cwd).isDirectory()) return json(res, 400, { error: `No folder at ${body.cwd}` });
-      const s = newSession({ cwd, title: body.title });
+      const s = newSession({ cwd, title: body.title, crew: !!body.crew });
       if (body.prompt) sendPrompt(s, body.prompt);
       return json(res, 200, publicSession(s));
     }
@@ -747,6 +839,12 @@ async function route(req, res, url) {
       if (typeof body.pinned === 'boolean') patch.pinned = body.pinned;
       let relaunch = false;
       for (const k of ['model', 'effort', 'permission']) if (body[k] && body[k] !== s[k]) { patch[k] = body[k]; relaunch = true; }
+      if (typeof body.crew === 'boolean' && body.crew !== !!s.crew) {
+        patch.crew = body.crew;
+        relaunch = true;
+        // Crew mode runs the planner's model; going back to solo keeps whatever it was.
+        if (body.crew) { patch.model = settings.crew.planner.model; patch.effort = settings.crew.planner.effort; }
+      }
       touch(s, patch);
       if (relaunch) restartIfIdle(s);
       return json(res, 200, publicSession(s));
@@ -767,7 +865,7 @@ async function route(req, res, url) {
 const demoSeed = DEMO && require('./demo').seed({ newSession, appendEvent: storeEvent, sessions, saveSessions, setUsage: (u) => { usage = u; }, DATA });
 
 server.listen(PORT, HOST, () => {
-  if (demoSeed && demoSeed.autoplay) setTimeout(() => sendPrompt(demoSeed.autoplay.session, demoSeed.autoplay.prompt), 1500);
+  if (demoSeed && demoSeed.autoplay) demoSeed.autoplay.forEach((a, i) => setTimeout(() => sendPrompt(a.session, a.prompt), 1500 + i * 700));
   const link = `http://localhost:${PORT}`;
   console.log(`\n  desk is running at ${link}${DEMO ? '  (demo mode, nothing real runs)' : ''}\n`);
   if (process.argv.includes('--open')) {

@@ -588,6 +588,7 @@ const Tiling = {
     for (const h of st.history) items.push({ glyph: '↺', label: h.title, sub: `resume · ${h.where}`, act: done(() => importSession(h.sessionId)) });
     items.push({ glyph: '◐', label: 'themes', sub: Keys.label('themes'), act: done(() => openThemePicker()) });
     items.push({ glyph: '✎', label: 'desk.conf', sub: Keys.label('config'), act: done(() => this.openConfig()) });
+    items.push({ glyph: '⚑', label: 'edit the crew', sub: 'helper levels and stats', act: done(() => openCrew()) });
     items.push({ glyph: '⌨', label: 'keyboard shortcuts', sub: `modifier: ${Keys.mod().label}`, act: done(() => openShortcuts()) });
     items.push({ glyph: '★', label: "what's new", sub: 'changelog', act: done(() => openChangelog()) });
     const words = q.toLowerCase().split(/\s+/).filter(Boolean);
@@ -595,6 +596,7 @@ const Tiling = {
     if (q.trim() && !looksLikePath) {
       const ws = this.ws ? baseName(this.ws) : 'your default folder';
       out.push({ glyph: '❯', label: `new session: “${q.trim()}”`, sub: `in ${ws}`, act: done(() => this.newIn(this.ws || undefined, q.trim())) });
+      out.push({ glyph: '⚑', label: `crew session: “${q.trim()}”`, sub: `planner + helpers, in ${ws}`, act: done(() => this.newIn(this.ws || undefined, q.trim(), true)) });
     }
     if (!q.trim() && !this.openSessions().length && !st.projects.length) out.push({ glyph: '+', label: 'new session in your home folder', sub: st.home, act: done(() => this.newIn(undefined)) });
     return out.slice(0, 60);
@@ -611,8 +613,8 @@ const Tiling = {
     list.querySelector('.sel')?.scrollIntoView({ block: 'nearest' });
   },
 
-  async newIn(cwd, prompt) {
-    const s = await createSession(cwd, prompt);
+  async newIn(cwd, prompt, crew) {
+    const s = await createSession(cwd, prompt, crew);
     this.ws = s.cwd;
     st.focusId = s.id;
     this.fullscreen = false;

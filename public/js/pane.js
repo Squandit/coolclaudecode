@@ -26,6 +26,7 @@ function freshModel() {
     todos: [], tasks: new Map(), files: new Map(), toolInputs: new Map(),
     turns: 0, timeMs: 0, tools: 0, tokIn: 0, tokOut: 0, cacheR: 0, cacheW: 0, cost: 0,
     ctx: null, window: 200000, modelName: null,
+    byModel: {}, crewRuns: new Map(), awaitingGo: false,
   };
 }
 
@@ -86,7 +87,14 @@ function describeTool(name, input, s, result) {
     case 'WebSearch': return { ico: ICON.web, c: 'var(--info)', html: `<b>Searched the web</b> for “${q(i.query, 70)}”` };
     case 'TodoWrite': case 'TaskCreate': case 'TaskUpdate': case 'TaskList': case 'TaskGet':
       return { ico: ICON.todo, c: 'var(--ok)', html: `<b>Updated the to-do list</b>${i.subject ? ` <span class="dim">${q(i.subject, 60)}</span>` : ''}` };
-    case 'Task': case 'Agent': return { ico: ICON.agent, c: 'var(--you)', html: `<b>Sent a helper</b> ${q(i.description || i.subagent_type || '', 80)}` };
+    case 'Task': case 'Agent': {
+      const lvl = crewLevel(i.subagent_type);
+      if (lvl) {
+        const stats = result && result.totalTokens ? ` <span class="dim">· ${fmtTokens(result.totalTokens)} tokens · ${fmtDur(result.totalDurationMs)}${result.resolvedModel ? ' · ' + esc(shortModel(result.resolvedModel)) : ''}</span>` : '';
+        return { ico: ICON.agent, c: 'var(--you)', html: `${lvlBadge(lvl)} ${q(i.description || '', 80)}${stats}`, lvl };
+      }
+      return { ico: ICON.agent, c: 'var(--you)', html: `<b>Sent a helper</b> ${q(i.description || i.subagent_type || '', 80)}` };
+    }
     case 'AskUserQuestion': return { ico: ICON.ask, c: 'var(--hot)', html: `<b>Asked you</b> ${q(i.questions?.[0]?.question || '', 80)}` };
     case 'ExitPlanMode': return { ico: ICON.plan, c: 'var(--info)', html: `<b>Proposed a plan</b>` };
     case 'EnterPlanMode': return { ico: ICON.plan, c: 'var(--info)', html: `<b>Switched to planning</b>` };
@@ -244,6 +252,7 @@ class Pane {
         <button class="pill model" data-menu="model">${esc(model ? model.name : s.model)}</button>
         <button class="pill" data-menu="effort">${esc(effort ? effort.name : s.effort)}</button>
         <button class="pill perm-${s.permission}" data-menu="perm">${esc(perm ? perm.name : s.permission)}</button>
+        <button class="pill crew-pill ${s.crew ? 'on' : ''}" data-menu="crew" title="Crew: a planner hands tasks to helpers at different levels">${ICON.agent}${s.crew ? 'crew' : 'solo'}</button>
         <button class="pill ghost ctx-pill" data-ctx title="Context used">${pct == null ? '' : `<span class="ctx-ring" style="--p:${pct};--c:${levelColor(pct)}"></span>`}${pct == null ? 'context' : pct + '%'}<span class="k">${pct == null ? '' : 'context'}</span></button>
         <button class="icon-btn tray-btn ${trayShown ? 'on' : ''}" data-tray title="Toggle side panel">${ICON.panel}</button>
         <button class="icon-btn" data-menu="more" title="More">${ICON.more}</button>
@@ -286,6 +295,11 @@ class Pane {
     if (kind === 'model') items = MODELS.map((m) => ({ id: m.id, main: m.name, sel: s.model === m.id }));
     else if (kind === 'effort') items = EFFORTS.map((m) => ({ id: m.id, main: m.name, sel: s.effort === m.id }));
     else if (kind === 'perm') items = PERMS.map((m) => ({ id: m.id, main: m.name, sub: m.sub, sel: s.permission === m.id }));
+    else if (kind === 'crew') items = [
+      { id: 'solo', main: 'Solo', sub: 'One model does everything', sel: !s.crew },
+      { id: 'crew', main: 'Crew', sub: 'A planner hands tasks to helpers by difficulty', sel: !!s.crew },
+      { id: 'edit', main: 'Edit the crew…', sub: 'Levels, models, effort, stats' },
+    ];
     else items = [
       { id: 'copy-resume', main: 'Copy terminal command', sub: `claude --resume ${s.sessionId.slice(0, 8)}…` },
       { id: 'copy-path', main: 'Copy folder path' },
@@ -293,6 +307,7 @@ class Pane {
       { id: 'delete', main: 'Delete from desk', sub: "Claude Code's own transcript stays" },
     ];
     openMenu(anchor, kind + this.id, items, async (id) => {
+      if (kind === 'crew') { if (id === 'edit') openCrew(); else await this.patch({ crew: id === 'crew' }); return; }
       if (kind === 'model') await this.patch({ model: id });
       else if (kind === 'effort') await this.patch({ effort: id });
       else if (kind === 'perm') await this.patch({ permission: id });
@@ -326,6 +341,15 @@ class Pane {
       if (u) m.ctx = { cached: u.cache_read_input_tokens || 0, fresh: (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) };
       if (ev.message.model) m.modelName = ev.message.model;
       for (const c of ev.message.content || []) {
+        if (c.type === 'text' && /reply\s+["“]?go["”]?\s+to start/i.test(c.text)) m.awaitingGo = true;
+        if (c.type === 'tool_use' && (c.name === 'Agent' || c.name === 'Task')) {
+          const lvl = crewLevel(c.input && c.input.subagent_type);
+          if (lvl) {
+            const t = String(c.input.description || '').match(/#(\d+)/);
+            m.crewRuns.set(c.id, { level: lvl, task: t ? +t[1] : null, desc: String(c.input.description || '').replace(/^#\d+\s*/, ''), status: 'running' });
+            m.awaitingGo = false;
+          }
+        }
         if (c.type !== 'tool_use') continue;
         m.tools++;
         m.toolInputs.set(c.id, { name: c.name, input: c.input || {} });
@@ -334,6 +358,11 @@ class Pane {
     } else if (ev.type === 'user' && !ev.parent) {
       for (const c of ev.message.content || []) {
         if (c.type !== 'tool_result') continue;
+        const run = m.crewRuns.get(c.tool_use_id);
+        if (run) {
+          const rr = ev.result || {};
+          if (rr.status === 'completed' || c.is_error) Object.assign(run, { status: c.is_error ? 'failed' : 'done', tokens: rr.totalTokens, ms: rr.totalDurationMs, model: rr.resolvedModel });
+        }
         const tu = m.toolInputs.get(c.tool_use_id);
         if (!tu || c.is_error) continue;
         const r = ev.result || {};
@@ -367,6 +396,7 @@ class Pane {
       m.cacheR += u.cache_read_input_tokens || 0;
       m.cacheW += u.cache_creation_input_tokens || 0;
       if (ev.contextWindow) m.window = ev.contextWindow;
+      for (const [k, v] of Object.entries(ev.byModel || {})) m.byModel[k] = (m.byModel[k] || 0) + v;
     }
   }
 
@@ -419,6 +449,8 @@ class Pane {
     const s = this.s;
     if (ev.t === 'prompt') {
       this.endLive();
+      this.m.awaitingGo = false;
+      $$('.go-bar', this.$items).forEach((x) => x.remove());
       const time = ev.ts ? clock(new Date(ev.ts)) : '';
       this.add(`<div class="prompt"><div class="who">you<time>${esc(time)}</time></div><div class="prompt-text">${esc(ev.text)}</div></div>`);
     } else if (ev.t === 'compact') {
@@ -433,7 +465,14 @@ class Pane {
     } else if (ev.type === 'assistant') {
       if (ev.parent) return;
       for (const c of ev.message.content || []) {
-        if (c.type === 'text' && c.text.trim()) { this.endLive(); this.add(`<div class="say">${md(c.text)}</div>`); }
+        if (c.type === 'text' && c.text.trim()) {
+          this.endLive();
+          this.add(`<div class="say">${md(c.text)}</div>`);
+          if (s.crew && /reply\s+["“]?go["”]?\s+to start/i.test(c.text)) {
+            const bar = this.add(`<div class="go-bar"><button class="btn primary" data-go>${ICON.agent} Go</button><span class="dim">or type what to change below</span></div>`);
+            $('[data-go]', bar).onclick = () => this.sendText('go');
+          }
+        }
         else if (c.type === 'thinking' && c.thinking && c.thinking.trim()) this.add(`<details class="thinking"><summary>${ICON.brain} thought about it</summary><div>${esc(c.thinking)}</div></details>`);
         else if (c.type === 'tool_use') this.addTool(c, s);
       }
@@ -768,6 +807,11 @@ class Pane {
     };
   }
 
+  async sendText(text) {
+    try { await api('POST', `/sessions/${this.id}/send`, { text }); this.scrollToEnd(true); }
+    catch (err) { toast(err.message); }
+  }
+
   renderComposerState() {
     const s = this.s;
     if (!s) return;
@@ -846,10 +890,11 @@ function trayCards(p) {
   const w = (n) => (n / m.window) * 100 + '%';
 
   return `
-    <section class="card">
+    ${s.crew ? '' : `<section class="card">
       <div class="card-head"><h3>To do</h3><span class="count">${todos.length ? `${done} of ${todos.length}` : ''}</span></div>
       ${todoHtml}
-    </section>
+    </section>`}
+    ${s.crew ? crewCard(p) : ''}
     ${Changes.card(p)}
     <section class="card">
       <div class="card-head"><h3>Files touched</h3><span class="count">${files.length ? `${files.length} · <span class="n-add">+${fa}</span> <span class="n-del">−${fd}</span>` : ''}</span></div>
@@ -879,4 +924,42 @@ function trayCards(p) {
       </div>
       <div class="ctx-note">Claude Code compacts on its own as this fills. Type <span class="mono">/compact</span> to do it now.</div>
     </section>`;
+}
+
+// ------------------------------------------------------------------ crew
+
+function crewLevel(agentType) {
+  const m = String(agentType || '').match(/^desk:([a-z][a-z0-9-]*)$/);
+  return m ? m[1] : null;
+}
+function lvlBadge(lvl) {
+  const kind = lvl === 'scout' ? 'scout' : lvl[0] === 'o' ? 'opus' : lvl[0] === 's' ? 'sonnet' : 'other';
+  return `<span class="lvl lvl-${kind}">${esc(lvl.toUpperCase())}</span>`;
+}
+
+// The plan (to-dos tagged with a level), each task's attempts, and cost per model.
+function crewCard(p) {
+  const m = p.m;
+  const todos = m.tasks.size ? [...m.tasks.values()] : m.todos;
+  const runs = [...m.crewRuns.values()];
+  const byTask = new Map();
+  for (const r of runs) if (r.task != null) { if (!byTask.has(r.task)) byTask.set(r.task, []); byTask.get(r.task).push(r); }
+  const plan = todos.map((t, i) => {
+    const mm = String(t.content || '').match(/^\[([a-z0-9-]+)\]\s*(.*)$/i);
+    const lvl = mm ? mm[1].toLowerCase() : null;
+    const text = mm ? mm[2] : t.content;
+    const tries = byTask.get(i + 1) || [];
+    const chain = tries.length > 1 ? `<span class="chain">${tries.map((r) => esc(r.level.toUpperCase())).join(' → ')}</span>` : '';
+    return `<li class="${t.status}">${lvl ? lvlBadge(lvl) : '<span class="lvl lvl-other">—</span>'}<span class="pt">${esc(text)}</span>${chain}</li>`;
+  }).join('');
+  const done = runs.filter((r) => r.status === 'done').length;
+  const escalations = [...byTask.values()].reduce((n, list) => n + Math.max(0, list.length - 1), 0);
+  const costs = Object.entries(m.byModel).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${fmtCost(v)}</dd>`).join('');
+  return `<section class="card crew-card">
+    <div class="card-head"><h3>Crew</h3><span class="count">${runs.length ? `${done}/${runs.length} runs${escalations ? ` · ${escalations} escalated` : ''}` : 'planning'}</span></div>
+    ${plan ? `<ul class="crew-plan">${plan}</ul>` : `<div class="card-empty">The planner's task list shows up here, each task tagged with the helper level it went to.</div>`}
+    ${m.awaitingGo && p.s.status !== 'working' ? `<button class="btn primary go-btn" data-crew-go="${p.id}">${ICON.agent} Go</button>` : ''}
+    ${costs ? `<dl class="stats crew-costs">${costs}</dl>` : ''}
+    <button class="link-btn" data-crew-edit>Edit the crew</button>
+  </section>`;
 }

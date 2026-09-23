@@ -4,6 +4,8 @@ A local web UI for Claude Code. Several sessions run side by side, and permissio
 
 It drives the `claude` CLI you already have installed, so it uses your existing login. That works with a Pro or Max subscription, and you don't need an API key. Every session is a normal Claude Code session, which means you can pick any of them up in the terminal with `claude --resume`. It also works the other way: sessions you started in the terminal show up in desk, ready to resume.
 
+**Crew mode** is for bigger jobs. An Opus planner splits your request into tasks and hands each one to the cheapest helper level that can do it well: a Haiku scout for reading, then Sonnet at medium, high and xhigh effort, then Opus at low, medium, high and xhigh. Failed tasks move up a level. You approve the plan first, and the side panel shows every task's level, any escalations, and cost per model. Helpers are loaded as a Claude Code plugin for that session only, so nothing is added to your normal Claude Code setup.
+
 Other things it does: a real terminal in the page (Ctrl \`), a git Changes card with diffs, "open" on any file to start your editor on it in a terminal, and a theme switcher (Alt T). [CHANGELOG.md](CHANGELOG.md) has the full list.
 
 There are two layouts. The **classic** layout has a sidebar, one session and an info panel. It comes in Catppuccin Mocha and Latte, Tokyo Night, Gruvbox, Nord, Rosé Pine and Everforest. **Riced** turns the page into a tiling desktop: every open session is its own window, with a waybar-style bar on top and a `desk.conf` you edit live. Switch between them in settings. [IDEAS.md](IDEAS.md) has where it could go next.
@@ -62,6 +64,7 @@ The server only listens on `127.0.0.1`. It rejects requests that don't come from
 | `public/js/term.js` | Terminals, the git Changes card, theme picker, changelog |
 | `lib/terminals.js` | Shells over node-pty |
 | `lib/git.js` | git status and diffs |
+| `lib/crew.js` | Crew levels, the helper plugin and the planner's instructions |
 | `public/js/classic.js` | The classic layout |
 | `public/js/tiling.js` | The riced layout, desk.conf parsing and palettes |
 | `public/js/app.js` | Boot, live updates, switching layouts |

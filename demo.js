@@ -34,6 +34,7 @@ function spawnFake(session) {
   child.pid = 0;
 
   let cost = 0;
+  const modelCost = {};
   let timers = [];
   let waiting = null;
   let turn = 0;
@@ -72,8 +73,11 @@ function spawnFake(session) {
     const started = Date.now();
     let i = 0;
     const finish = () => {
-      cost += 0.061;
-      out({ type: 'result', subtype: 'success', is_error: false, duration_ms: Date.now() - started, num_turns: 3, total_cost_usd: cost, usage: usageBlock(61800 + turn * 2400, 690), modelUsage: { [MODEL]: { contextWindow: 200000 } }, permission_denials: [] });
+      const spend = steps.spend || { [MODEL]: 0.061 };
+      for (const [k, v] of Object.entries(spend)) { modelCost[k] = (modelCost[k] || 0) + v; cost += v; }
+      const modelUsage = {};
+      for (const [k, v] of Object.entries(modelCost)) modelUsage[k] = { costUSD: v, contextWindow: k.includes('haiku') ? 200000 : 1000000 };
+      out({ type: 'result', subtype: 'success', is_error: false, duration_ms: Date.now() - started, num_turns: 3, total_cost_usd: cost, usage: usageBlock(61800 + turn * 2400, 690), modelUsage, permission_denials: [] });
     };
     const next = () => {
       if (i >= steps.length) return later(200, finish);
@@ -110,6 +114,7 @@ function spawnFake(session) {
   }
 
   function script(s, prompt, n) {
+    if (s.crew) return crewScript(s, prompt, n);
     const cwd = s.cwd;
     const file = (f) => path.join(cwd, f);
     const edit1 = uid(), bash = uid(), todo = uid(), todo2 = uid(), read = uid();
@@ -144,6 +149,55 @@ function spawnFake(session) {
   }
 
   return child;
+}
+
+// A crew run: plan, wait for "go", then helpers at different levels, one escalation.
+function crewScript(s, prompt, n) {
+  const file = (f) => path.join(s.cwd, f);
+  const todos = (st) => ({ todos: [
+    { content: '[scout] Map the settings page and how styles load', status: st[0], activeForm: 'Mapping the settings page' },
+    { content: '[s1] Add dark colour tokens to style.css', status: st[1], activeForm: 'Adding dark colour tokens' },
+    { content: `[${st[4] || 's3'}] Build the theme toggle on the settings page`, status: st[2], activeForm: 'Building the theme toggle' },
+    { content: '[s2] Remember the choice in localStorage', status: st[3], activeForm: 'Saving the choice' },
+  ] });
+  const agent = (id, lvl, desc) => assistantTool(id, 'Agent', { subagent_type: 'desk:' + lvl, description: desc, prompt: '…' });
+  const done = (id, lvl, model, tokens, ms, report) => toolResult(id, report, { status: 'completed', agentType: 'desk:' + lvl, resolvedModel: model, totalTokens: tokens, totalDurationMs: ms, totalToolUseCount: 4 });
+  const init = { wait: 120, ev: { type: 'system', subtype: 'init', session_id: s.sessionId, model: MODEL, claude_code_version: 'demo' } };
+  if (n === 1) {
+    const plan = uid(), sc = uid();
+    const steps = [
+      init,
+      { wait: 400, activity: 'Sending a scout' },
+      { wait: 300, ev: agent(sc, 'scout', '#1 map the settings page') },
+      { wait: 1400, ev: done(sc, 'scout', 'claude-haiku-4-5', 18400, 9100, 'settings.html renders the form; style.css holds all colours as plain values; no theme handling yet.') },
+      { wait: 300, ev: assistantTool(plan, 'TodoWrite', todos(['completed', 'pending', 'pending', 'pending'])) },
+      { wait: 150, ev: toolResult(plan, 'Todos updated', {}) },
+      { stream: 'Here is the plan:\n\n1. **[scout]** map the settings page (done)\n2. **[s1]** add dark colour tokens: mechanical, one file\n3. **[s3]** build the toggle: follows the existing form controls\n4. **[s2]** remember the choice: small, self-contained\n\nReply "go" to start, or tell me what to change.' },
+    ];
+    steps.spend = { 'claude-opus-5-5': 0.09, 'claude-haiku-4-5': 0.012 };
+    return steps;
+  }
+  const a = uid(), b = uid(), c = uid(), d = uid(), t1 = uid(), t2 = uid();
+  const steps = [
+    init,
+    { wait: 300, activity: 'Handing out tasks' },
+    { wait: 300, ev: agent(a, 's1', '#2 add dark colour tokens') },
+    { wait: 1200, ev: done(a, 's1', 'claude-sonnet-5', 9100, 11800, 'Added a [data-theme=dark] block with 9 tokens to style.css.') },
+    { wait: 300, ev: assistantTool(t1, 'TodoWrite', todos(['completed', 'completed', 'in_progress', 'pending'])) },
+    { wait: 100, ev: toolResult(t1, 'Todos updated', {}) },
+    { wait: 300, ev: agent(b, 's3', '#3 build the theme toggle') },
+    { wait: 1500, ev: done(b, 's3', 'claude-sonnet-5', 31200, 42000, 'Added the toggle, but the page flashes light before switching. Could not find where to apply the theme before first paint.') },
+    { stream: 'The toggle works but flashes on load; that needs the theme applied before first paint. Sending #3 up to O1.' },
+    { wait: 300, ev: agent(c, 'o1', '#3 build the theme toggle (no flash on load)') },
+    { wait: 1800, ev: done(c, 'o1', 'claude-opus-5-5', 24800, 38500, 'Moved the theme read into an inline script in <head>, so it applies before paint. Toggle and reload both checked.') },
+    { wait: 300, ev: agent(d, 's2', '#4 remember the choice in localStorage') },
+    { wait: 1200, ev: done(d, 's2', 'claude-sonnet-5', 8700, 9600, 'Saves on toggle, reads on load. 2 tests added, both pass.') },
+    { wait: 300, ev: assistantTool(t2, 'TodoWrite', todos(['completed', 'completed', 'completed', 'completed', 'o1'])) },
+    { wait: 100, ev: toolResult(t2, 'Todos updated', {}) },
+    { stream: 'Done. Dark mode is on the settings page and sticks across reloads.\n\n- **S1** added the colour tokens\n- **S3** built the toggle, but it flashed on load, so **O1** fixed it by applying the theme before first paint\n- **S2** saved the choice, with tests\n\nOne escalation, everything else went through first time.' },
+  ];
+  steps.spend = { 'claude-opus-5-5': 0.21, 'claude-sonnet-5': 0.19 };
+  return steps;
 }
 
 function assistantText(text) {
@@ -184,6 +238,9 @@ function seed({ newSession, appendEvent, sessions, saveSessions, setUsage, DATA 
     assistantText('Added `import.js`. It reads `recipes.csv`, skips rows without a title and writes one JSON file per recipe into `data/`.'),
     { type: 'result', subtype: 'success', durationMs: 41000, steps: 6, cost: 0.19, usage: usageBlock(30000, 1400), contextWindow: 200000 },
   ]);
+
+  const darkmode = newSession({ cwd: mk('lemonade-stand'), title: 'dark mode for settings', crew: true });
+  Object.assign(darkmode, { status: 'idle', titled: true, updatedAt: at(1) });
 
   const weather = newSession({ cwd: mk('weather-cli'), title: 'weather cli units flag' });
   Object.assign(weather, { status: 'idle', started: true, titled: true, updatedAt: at(10) });
@@ -272,7 +329,10 @@ function seed({ newSession, appendEvent, sessions, saveSessions, setUsage, DATA 
     }
   }
 
-  return { autoplay: { session: weather, prompt: 'add a --units flag so I can get fahrenheit, then run the tests' } };
+  return { autoplay: [
+    { session: weather, prompt: 'add a --units flag so I can get fahrenheit, then run the tests' },
+    { session: darkmode, prompt: 'add dark mode to the settings page and make it remember the choice' },
+  ] };
 }
 
 module.exports = { spawnFake, seed };

@@ -653,3 +653,41 @@ kbd {
 .keys-table kbd { font-size: 12px; padding: 3px 8px; opacity: 1; }
 kbd.listening { color: var(--hot); border-color: var(--hot); animation: blink 1s steps(2) infinite; }
 .keys-note { margin: 12px 0 0; font-size: 12px; color: var(--fg-3); }
+
+/* ------------------------------------------------------------ crew */
+
+.lvl { display: inline-block; min-width: 3.2em; text-align: center; padding: 1px 6px; border-radius: var(--r-xs); font-size: 10.5px; font-weight: 800; letter-spacing: .04em; line-height: 1.5; vertical-align: 1px; }
+.lvl-scout { background: var(--raised); color: var(--fg-2); }
+.lvl-sonnet { background: color-mix(in srgb, var(--info) 18%, transparent); color: var(--info); }
+.lvl-opus { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); }
+.lvl-other { background: var(--raised); color: var(--fg-3); }
+.pill.crew-pill { color: var(--fg-2); }
+.pill.crew-pill.on { color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--raised)); }
+.btn.crew-toggle.on { background: color-mix(in srgb, var(--accent) 18%, var(--raised)); color: var(--accent); }
+
+.crew-plan { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.crew-plan li { display: flex; align-items: baseline; gap: 8px; font-size: 12.5px; line-height: 1.4; }
+.crew-plan .pt { flex: 1; min-width: 0; color: var(--fg-2); }
+.crew-plan li.in_progress .pt { color: var(--fg); font-weight: 700; }
+.crew-plan li.completed .pt { color: var(--fg-3); text-decoration: line-through; text-decoration-color: var(--fg-3); }
+.crew-plan .chain { font-size: 11px; color: var(--hot); white-space: nowrap; font-weight: 700; }
+.crew-card .go-btn { width: 100%; margin-top: 12px; }
+.crew-card .crew-costs { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--line-strong); }
+.crew-card .link-btn { margin-top: 8px; padding: 2px 0; }
+.go-bar { display: flex; align-items: center; gap: 12px; margin: 10px 0 14px; }
+.layout-tiling .go-bar { padding-left: 20px; }
+
+.crew-modal { width: min(1040px, 100%); }
+.crew-pane { padding: 14px 16px 16px; }
+.crew-intro { margin: 0 0 14px; font-size: 12.5px; color: var(--fg-2); max-width: 720px; line-height: 1.55; }
+.crew-table { font-size: 12.5px; }
+.crew-table th { text-align: left; font-size: 11px; font-weight: 800; color: var(--fg-3); padding: 6px 8px; text-transform: uppercase; letter-spacing: .06em; }
+.crew-table td { padding: 5px 8px; }
+.crew-table .num { text-align: right; font-variant-numeric: tabular-nums; color: var(--fg-2); }
+.crew-table select { height: 28px; padding: 0 6px; border-radius: var(--r-sm); border: 1px solid var(--line-strong); background: var(--panel-2); font-family: var(--font-mono); font-size: 12px; }
+.crew-table .text-in { max-width: none; height: 28px; font-size: 12px; }
+.crew-table .planner-row td { border-bottom: 1px solid var(--line-strong); }
+.crew-opts { display: flex; flex-wrap: wrap; gap: 10px 28px; margin: 16px 0 6px; font-size: 13px; align-items: center; }
+.crew-opts .num-in { width: 60px; display: inline-block; margin: 0 4px; }
+.crew-opts .chk { display: inline-flex; align-items: center; gap: 8px; }
+.crew-actions { display: flex; align-items: center; gap: 14px; margin-top: 14px; }

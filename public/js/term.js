@@ -341,3 +341,62 @@ async function openChangelog() {
     store.set('seenVersion', d.version);
   } catch (err) { $('.modal-body', win).innerHTML = `<div class="err-card" style="margin:16px">${esc(err.message)}</div>`; }
 }
+
+// ------------------------------------------------------------------ crew editor
+
+document.addEventListener('click', (e) => {
+  const go = e.target.closest('[data-crew-go]');
+  if (go) { go.disabled = true; panes.get(go.dataset.crewGo)?.sendText('go'); return; }
+  if (e.target.closest('[data-crew-edit]')) openCrew();
+});
+
+async function openCrew() {
+  const MODELS_ = ['haiku', 'sonnet', 'opus', 'fable'];
+  const EFFORTS_ = ['', 'low', 'medium', 'high', 'xhigh', 'max'];
+  let info = { defaults: null, stats: { levels: [], total: 0 } };
+  try { info = await api('GET', '/crew'); } catch {}
+  let crew = JSON.parse(JSON.stringify(st.settings.crew || info.defaults));
+  const sel = (list, v, attr) => `<select ${attr}>${list.map((x) => `<option value="${x}" ${x === v ? 'selected' : ''}>${x || 'default'}</option>`).join('')}</select>`;
+  const stats = new Map((info.stats.levels || []).map((l) => [l.level, l]));
+  const draw = () => `<div class="crew-pane">
+    <p class="crew-intro">In crew mode the planner splits your request into tasks and hands each one to the cheapest helper that can do it well. If a helper fails, the task moves up a level. Pick crew or solo per session from the header.</p>
+    <table class="table crew-table">
+      <thead><tr><th>Level</th><th>Model</th><th>Effort</th><th>What it gets</th><th class="num">Runs</th><th class="num">Escalated</th><th class="num">Avg tokens</th></tr></thead>
+      <tbody>
+        <tr class="planner-row"><td><b>Planner</b></td><td>${sel(MODELS_, crew.planner.model, 'data-p="model"')}</td><td>${sel(EFFORTS_, crew.planner.effort, 'data-p="effort"')}</td><td class="dim">Plans, hands out tasks, checks results</td><td></td><td></td><td></td></tr>
+        ${crew.levels.map((l, i) => {
+          const s = stats.get(l.id);
+          return `<tr><td>${lvlBadge(l.id)}</td><td>${sel(MODELS_, l.model, `data-i="${i}" data-k="model"`)}</td><td>${sel(EFFORTS_, l.effort, `data-i="${i}" data-k="effort"`)}</td>
+            <td><input class="text-in" data-i="${i}" data-k="job" value="${esc(l.job)}"></td>
+            <td class="num">${s ? s.runs : '·'}</td><td class="num">${s && s.runs ? Math.round((s.escalated / s.runs) * 100) + '%' : '·'}</td><td class="num">${s ? fmtTokens(s.avgTokens) : '·'}</td></tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+    <div class="crew-opts">
+      <label>Escalate a task at most <input class="text-in num-in" type="number" min="0" max="6" data-opt="escalate" value="${crew.escalate}"> times</label>
+      <label class="chk"><input type="checkbox" data-opt="approve" ${crew.approve ? 'checked' : ''}> Show me the plan before helpers start</label>
+    </div>
+    <div class="crew-actions">
+      <button class="btn primary" data-save>Save</button>
+      <button class="link-btn" data-defaults>Reset to defaults</button>
+      <span class="dim">${info.stats.total ? `${info.stats.total} helper runs logged so far` : 'Stats fill in as helpers run.'}</span>
+    </div>
+  </div>`;
+  const win = openModal({ title: 'Crew', sub: 'planner and helper levels', cls: 'crew-modal', body: draw() });
+  const body = $('.modal-body', win);
+  body.oninput = body.onchange = (e) => {
+    const t = e.target;
+    if (t.dataset.p) crew.planner[t.dataset.p] = t.value;
+    else if (t.dataset.k) crew.levels[+t.dataset.i][t.dataset.k] = t.value;
+    else if (t.dataset.opt === 'escalate') crew.escalate = +t.value || 0;
+    else if (t.dataset.opt === 'approve') crew.approve = t.checked;
+  };
+  body.onclick = async (e) => {
+    if (e.target.closest('[data-defaults]')) { crew = JSON.parse(JSON.stringify(info.defaults)); body.innerHTML = draw(); return; }
+    if (e.target.closest('[data-save]')) {
+      await saveSettings({ crew }, { apply: false });
+      toast('Crew saved. Idle crew sessions pick it up from their next message.');
+      closeModal();
+    }
+  };
+}
