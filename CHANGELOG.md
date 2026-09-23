@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.3
+
+- The planner decides again when a job is small enough for one helper, as in 0.5.0. A real run showed one S3 doing a small app in one pass beats splitting it. Untick "Let the planner send small jobs straight to one helper" in Edit the crew if you want a plan every time.
+
 ## 0.5.2
 
 - **Font picker.** Settings → Fonts sets the interface font and, separately, the font for code, diffs and terminals, so the UI can be a sans serif while code stays lined up. Interface: JetBrains Mono, Geist Mono, IBM Plex Mono, Fira Code, Space Mono, Inter, Geist, Space Grotesk, Manrope, Plus Jakarta Sans, DM Sans, IBM Plex Sans, Outfit, Archivo. Riced gets a `code_font` line in desk.conf.

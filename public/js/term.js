@@ -375,7 +375,7 @@ async function openCrew() {
     <div class="crew-opts">
       <label>Escalate a task at most <input class="text-in num-in" type="number" min="0" max="6" data-opt="escalate" value="${crew.escalate}"> times</label>
       <label class="chk"><input type="checkbox" data-opt="approve" ${crew.approve ? 'checked' : ''}> Show me the plan before helpers start</label>
-      <label class="chk"><input type="checkbox" data-opt="skipSmall" ${crew.skipSmall !== false ? 'checked' : ''}> Let the planner skip planning for one-file changes</label>
+      <label class="chk"><input type="checkbox" data-opt="skipSmall" ${crew.skipSmall !== false ? 'checked' : ''}> Let the planner send small jobs straight to one helper</label>
     </div>
     <div class="crew-actions">
       <button class="btn primary" data-save>Save</button>
