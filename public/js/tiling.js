@@ -24,7 +24,8 @@ opacity_inactive = 0.9
 animations = on
 
 # text
-font = JetBrains Mono     # anything installed works, Nerd Fonts too
+font = JetBrains Mono     # anything installed, or: Inter Geist Space Grotesk Manrope DM Sans Outfit Archivo...
+code_font = JetBrains Mono  # code and terminals: Geist Mono, IBM Plex Mono, Fira Code, Space Mono...
 font_size = 13
 
 # bar and background
@@ -47,6 +48,7 @@ const RICE_KEYS = {
   opacity_inactive: { def: 0.9, float: [0.3, 1] },
   animations: { def: 'on', oneOf: ['on', 'off'] },
   font: { def: 'JetBrains Mono', font: true },
+  code_font: { def: 'JetBrains Mono', font: true },
   font_size: { def: 13, int: [10, 20] },
   bar_position: { def: 'top', oneOf: ['top', 'bottom'] },
   bar_style: { def: 'islands', oneOf: ['islands', 'flat'] },
@@ -109,9 +111,11 @@ function riceCss(cfg) {
   const pal = PALETTES[cfg.colors] || PALETTES.tokyonight;
   const accent = cfg.accent !== 'auto' && resolveColor(cfg.accent, pal, pal.accent) ? resolveColor(cfg.accent, pal, pal.accent) : pal.accent;
   const r = cfg.rounding;
-  const font = `'${cfg.font}', 'JetBrains Mono', ui-monospace, 'Cascadia Code', Menlo, Consolas, monospace`;
+  loadFont(cfg.font); loadFont(cfg.code_font);
+  const font = fontStack(cfg.font);
+  const mono = fontStack(cfg.code_font, true);
   return `:root {
-    ${paletteVars(pal, { accent, radius: [r, Math.max(0, r - 1), Math.max(0, r - 2), Math.min(r, 3), r], font })}
+    ${paletteVars(pal, { accent, radius: [r, Math.max(0, r - 1), Math.max(0, r - 2), Math.min(r, 3), r], font, mono })}
     --shadow: none;
     --gi: ${cfg.gaps_in}px; --go: ${cfg.gaps_out}px; --bw: ${cfg.border_size}px;
     --ab: ${parseBorder(cfg.active_border, pal, accent) || accent};

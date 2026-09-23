@@ -56,6 +56,8 @@ const DEFAULT_SETTINGS = {
   rice: '',
   editor: '',
   shell: '',
+  font: 'JetBrains Mono',
+  codeFont: 'JetBrains Mono',
   keys: { mod: 'alt', binds: {} },
   crew: crewLib.DEFAULT_CREW,
 };
@@ -733,6 +735,7 @@ async function route(req, res, url) {
     const body = await readBody(req);
     for (const k of Object.keys(DEFAULT_SETTINGS)) if (body[k] !== undefined) settings[k] = body[k];
     if (typeof settings.rice !== 'string' || settings.rice.length > 50000) settings.rice = '';
+    for (const k of ['font', 'codeFont']) if (typeof settings[k] !== 'string' || settings[k].length > 60) settings[k] = 'JetBrains Mono';
     settings.crew = crewLib.cleanCrew(settings.crew);
     if (body.crew) for (const x of sessions) if (x.crew) {
       Object.assign(x, { model: settings.crew.planner.model, effort: settings.crew.planner.effort });

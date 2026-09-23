@@ -33,8 +33,42 @@ function themeSwatch(pal) { return [pal.crust, pal.base, pal.s0, pal.accent, pal
 
 const MONO = "'JetBrains Mono', ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace";
 
+// Fonts you can pick in Settings. All from Google Fonts, loaded only when used.
+const FONTS = [
+  { name: 'JetBrains Mono', mono: true, w: '400;500;600;700;800' },
+  { name: 'Geist Mono', mono: true, w: '400;500;600;700;800' },
+  { name: 'IBM Plex Mono', mono: true, w: '400;500;600;700' },
+  { name: 'Fira Code', mono: true, w: '400;500;600;700' },
+  { name: 'Space Mono', mono: true, w: '400;700' },
+  { name: 'Inter', w: '400;500;600;700;800' },
+  { name: 'Geist', w: '400;500;600;700;800' },
+  { name: 'Space Grotesk', w: '400;500;600;700' },
+  { name: 'Manrope', w: '400;500;600;700;800' },
+  { name: 'Plus Jakarta Sans', w: '400;500;600;700;800' },
+  { name: 'DM Sans', w: '400;500;600;700;800' },
+  { name: 'IBM Plex Sans', w: '400;500;600;700' },
+  { name: 'Outfit', w: '400;500;600;700;800' },
+  { name: 'Archivo', w: '400;500;600;700;800' },
+];
+const loadedFonts = new Set(['JetBrains Mono']);
+function loadFont(name) {
+  const f = FONTS.find((x) => x.name === name);
+  if (!f || loadedFonts.has(name)) return;
+  loadedFonts.add(name);
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(name).replace(/%20/g, '+')}:wght@${f.w}&display=swap`;
+  document.head.appendChild(link);
+}
+function fontStack(name, mono) {
+  const n = String(name || '').replace(/["'`;{}()<>\\]/g, '').trim() || 'JetBrains Mono';
+  return mono || (FONTS.find((f) => f.name === n) || {}).mono
+    ? `'${n}', 'JetBrains Mono', ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace`
+    : `'${n}', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif`;
+}
+
 // Turn a palette into the CSS variables everything else uses.
-function paletteVars(pal, { accent, radius = [10, 7, 5, 3, 5], font } = {}) {
+function paletteVars(pal, { accent, radius = [10, 7, 5, 3, 5], font, mono } = {}) {
   const a = accent || pal.accent;
   const mix = (c, pct) => `color-mix(in srgb, ${c} ${pct}%, transparent)`;
   const [lg, md, sm, xs, pill] = radius;
@@ -51,7 +85,7 @@ function paletteVars(pal, { accent, radius = [10, 7, 5, 3, 5], font } = {}) {
     --r-lg: ${lg}px; --r-md: ${md}px; --r-sm: ${sm}px; --r-xs: ${xs}px; --r-pill: ${pill}px;
     --ab: ${a}; --ib: ${pal.s0}; --bw: 1px;
     --ansi-blue: ${pal.blue}; --ansi-magenta: ${pal.magenta}; --ansi-cyan: ${pal.cyan};
-    --font: ${font || MONO}; --font-mono: ${font || MONO};
+    --font: ${font || MONO}; --font-mono: ${mono || font || MONO};
     color-scheme: ${pal.light ? 'light' : 'dark'};`;
 }
 

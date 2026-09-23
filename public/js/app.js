@@ -48,7 +48,12 @@ function applyTheme(previewId) {
   document.body.classList.toggle('layout-tiling', next === Tiling);
   document.body.classList.toggle('layout-classic', next === Classic);
   if (next === Tiling) Tiling.applyConfig(st.settings.rice || DEFAULT_RICE);
-  else setThemeVars(`:root {${paletteVars(PALETTES[theme.palette] || PALETTES.catppuccin)}}`);
+  else {
+    const ui = st.settings.font || 'JetBrains Mono', code = st.settings.codeFont || 'JetBrains Mono';
+    loadFont(ui); loadFont(code);
+    setThemeVars(`:root {${paletteVars(PALETTES[theme.palette] || PALETTES.catppuccin, { font: fontStack(ui), mono: fontStack(code, true) })}}`);
+    document.body.classList.toggle('font-sans', !(FONTS.find((f) => f.name === ui) || { mono: true }).mono);
+  }
   Terms.retheme();
   if (L === next) return;
   if (L) L.leave();

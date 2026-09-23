@@ -691,3 +691,13 @@ kbd.listening { color: var(--hot); border-color: var(--hot); animation: blink 1s
 .crew-opts .num-in { width: 60px; display: inline-block; margin: 0 4px; }
 .crew-opts .chk { display: inline-flex; align-items: center; gap: 8px; }
 .crew-actions { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
+
+/* font picker */
+.font-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+.font-card { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 12px; border-radius: var(--r-md); border: 2px solid var(--line); background: var(--panel-2); text-align: left; }
+.font-card:hover { border-color: var(--line-strong); }
+.font-card.sel { border-color: var(--accent); }
+.font-card b { font-size: 22px; font-weight: 800; line-height: 1.1; }
+.font-card span { font-size: 12px; color: var(--fg-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+/* sans interface fonts: headings look better a touch tighter */
+body.font-sans .hero, body.font-sans .head-title, body.font-sans .brand-name { letter-spacing: -0.03em; }

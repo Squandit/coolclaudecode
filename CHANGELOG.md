@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.2
+
+- **Font picker.** Settings → Fonts sets the interface font and, separately, the font for code, diffs and terminals, so the UI can be a sans serif while code stays lined up. Interface: JetBrains Mono, Geist Mono, IBM Plex Mono, Fira Code, Space Mono, Inter, Geist, Space Grotesk, Manrope, Plus Jakarta Sans, DM Sans, IBM Plex Sans, Outfit, Archivo. Riced gets a `code_font` line in desk.conf.
+
 ## 0.5.1
 
 - The planner only skips the plan for a genuinely single change (one or two files, nothing to test separately). Anything with separate parts gets planned and split across levels. A new switch in Edit the crew turns the shortcut off entirely.

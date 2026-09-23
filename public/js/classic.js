@@ -408,6 +408,11 @@ const Classic = {
           </div>
         </div>
 
+        <div class="set-group"><h2>Fonts</h2><p>The interface can be anything; code blocks, diffs and terminals stay monospaced so they line up. In Riced, set <span class="mono">font</span> and <span class="mono">code_font</span> in desk.conf instead.</p>
+          <div class="set-row"><label>Interface</label><div class="font-grid">${FONTS.map((f) => `<button class="font-card ${(s.font || 'JetBrains Mono') === f.name ? 'sel' : ''}" data-font="${esc(f.name)}" style="font-family:${esc(fontStack(f.name))}"><b>Aa</b><span>${esc(f.name)}</span></button>`).join('')}</div></div>
+          <div class="set-row"><label>Code and terminal</label><div class="font-grid">${FONTS.filter((f) => f.mono).map((f) => `<button class="font-card ${(s.codeFont || 'JetBrains Mono') === f.name ? 'sel' : ''}" data-codefont="${esc(f.name)}" style="font-family:${esc(fontStack(f.name, true))}"><b>{ }</b><span>${esc(f.name)}</span></button>`).join('')}</div></div>
+        </div>
+
         <div class="set-group"><h2>New sessions start with</h2><p>You can change any of these per session from the header.</p>
           <div class="set-row"><label>Model</label>${seg('model', MODELS)}</div>
           <div class="set-row"><label>Effort<small>How hard Claude thinks</small></label>${seg('effort', EFFORTS.map((e) => ({ ...e, name: e.id })))}</div>
@@ -452,6 +457,14 @@ const Classic = {
       }
       const t = e.target.closest('[data-theme]');
       if (t) { switchTheme(t.dataset.theme); return; }
+      const fc = e.target.closest('[data-font],[data-codefont]');
+      if (fc) {
+        const key = fc.dataset.font ? 'font' : 'codeFont';
+        $$(fc.dataset.font ? '[data-font]' : '[data-codefont]', main).forEach((x) => x.classList.toggle('sel', x === fc));
+        await saveSettings({ [key]: fc.dataset.font || fc.dataset.codefont });
+        Terms.retheme();
+        return;
+      }
       if (e.target.closest('#notify')) {
         const on = !st.settings.notify;
         if (on && 'Notification' in window && Notification.permission === 'default') await Notification.requestPermission();
@@ -463,6 +476,7 @@ const Classic = {
       if (e.target.closest('[data-shortcuts]')) openShortcuts();
       if (e.target.closest('[data-side]')) $('#app').classList.add('side-open');
     };
+    FONTS.forEach((f) => loadFont(f.name));
     for (const input of $$('[data-text]', main)) {
       input.onchange = async () => { await saveSettings({ [input.dataset.text]: input.value.trim() }); if (input.dataset.text === 'claudePath') this.checkVersion(); };
     }
