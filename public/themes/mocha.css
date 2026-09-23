@@ -1,0 +1,68 @@
+/* Catppuccin Mocha. https://catppuccin.com/palette
+   A theme only sets tokens. Copy this file, change the values, and register it in THEMES in app.js. */
+
+:root {
+  --rosewater: #f5e0dc;
+  --flamingo: #f2cdcd;
+  --pink: #f5c2e7;
+  --mauve: #cba6f7;
+  --red: #f38ba8;
+  --maroon: #eba0ac;
+  --peach: #fab387;
+  --yellow: #f9e2af;
+  --green: #a6e3a1;
+  --teal: #94e2d5;
+  --sky: #89dceb;
+  --sapphire: #74c7ec;
+  --blue: #89b4fa;
+  --lavender: #b4befe;
+  --text: #cdd6f4;
+  --subtext1: #bac2de;
+  --subtext0: #a6adc8;
+  --overlay2: #9399b2;
+  --overlay1: #7f849c;
+  --overlay0: #6c7086;
+  --surface2: #585b70;
+  --surface1: #45475a;
+  --surface0: #313244;
+  --base: #1e1e2e;
+  --mantle: #181825;
+  --crust: #11111b;
+
+  /* what the app actually uses */
+  --bg: var(--crust);
+  --panel: var(--base);
+  --panel-2: var(--mantle);
+  --raised: var(--surface0);
+  --raised-2: var(--surface1);
+  --line: #2a2b3c;
+  --line-strong: var(--surface1);
+  --fg: var(--text);
+  --fg-2: var(--subtext0);
+  --fg-3: var(--overlay1);
+  --accent: var(--mauve);
+  --accent-fg: var(--crust);
+  --claude: var(--peach);
+  --you: var(--lavender);
+  --ok: var(--green);
+  --warn: var(--yellow);
+  --hot: var(--peach);
+  --bad: var(--red);
+  --info: var(--blue);
+  --add: var(--green);
+  --del: var(--red);
+  --add-bg: color-mix(in srgb, var(--green) 10%, transparent);
+  --del-bg: color-mix(in srgb, var(--red) 10%, transparent);
+  --code-bg: var(--mantle);
+  --ring: color-mix(in srgb, var(--mauve) 55%, transparent);
+  --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 12px 32px -12px rgba(0, 0, 0, 0.6);
+
+  --font: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+  --radius: 16px;
+  --radius-sm: 10px;
+
+  color-scheme: dark;
+}
+
+::selection { background: color-mix(in srgb, var(--mauve) 35%, transparent); }

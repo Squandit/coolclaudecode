@@ -1,0 +1,6 @@
+node_modules/
+.desk/
+*.log
+.DS_Store
+Thumbs.db
+screenshots/*.tmp.png
