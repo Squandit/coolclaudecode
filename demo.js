@@ -112,7 +112,7 @@ function spawnFake(session) {
   function script(s, prompt, n) {
     const cwd = s.cwd;
     const file = (f) => path.join(cwd, f);
-    const edit1 = uid(), bash = uid(), todo = uid(), read = uid();
+    const edit1 = uid(), bash = uid(), todo = uid(), todo2 = uid(), read = uid();
     return [
       { wait: 150, ev: { type: 'system', subtype: 'init', session_id: s.sessionId, model: MODEL, claude_code_version: 'demo' } },
       { wait: 50, ev: { type: 'rate_limit_event', rate_limit_info: { status: 'allowed', unifiedWindows: { five_hour: { utilization: 0.42 + n * 0.01, resetsAt: Math.floor(Date.now() / 1000) + 3 * 3600 }, seven_day: { utilization: 0.88, resetsAt: Math.floor(Date.now() / 1000) + 3 * 86400 } } } } },
@@ -128,15 +128,16 @@ function spawnFake(session) {
       { stream: `Going with a single \`--units\` flag that takes \`metric\` or \`imperial\`, defaulting to metric.` },
       { wait: 300, activity: 'Editing forecast.js', ev: assistantTool(edit1, 'Edit', { file_path: file('forecast.js'), old_string: 'return c;', new_string: "return units === 'imperial' ? c * 9 / 5 + 32 : c;" }) },
       { ask: { id: edit1, tool: 'Edit', description: 'forecast.js', input: { file_path: file('forecast.js'), old_string: 'return c;', new_string: "return units === 'imperial' ? c * 9 / 5 + 32 : c;" } } },
-      { wait: 300, ev: toolResult(edit1, 'The file has been updated.', { filePath: file('forecast.js'), structuredPatch: [{ oldStart: 14, oldLines: 3, newStart: 14, newLines: 3, lines: ['function toUnits(c, units) {', '-  return c;', "+  return units === 'imperial' ? c * 9 / 5 + 32 : c;", '}'] }] }) },
+      { wait: 300, ev: toolResult(edit1, 'The file has been updated.', { filePath: file('forecast.js'), structuredPatch: [{ oldStart: 14, oldLines: 3, newStart: 14, newLines: 3, lines: [' function toUnits(c, units) {', '-  return c;', "+  return units === 'imperial' ? c * 9 / 5 + 32 : c;", ' }'] }] }) },
       { wait: 300, activity: 'Running the tests', ev: assistantTool(bash, 'Bash', { command: 'npm test', description: 'Run the test suite' }) },
       { ask: { id: bash, tool: 'Bash', description: 'Run the test suite', input: { command: 'npm test', description: 'Run the test suite' } } },
       { wait: 1200, ev: toolResult(bash, '', { stdout: '> weather-cli@0.3.0 test\n> node --test\n\n✔ converts 20°C to 68°F\n✔ keeps metric by default\n✔ rejects --units=kelvin\nℹ tests 3\nℹ pass 3\nℹ fail 0', stderr: '', interrupted: false }) },
-      { wait: 300, ev: assistantTool(uid(), 'TodoWrite', { todos: [
+      { wait: 300, ev: assistantTool(todo2, 'TodoWrite', { todos: [
         { content: 'Add a --units flag', status: 'completed', activeForm: 'Adding a --units flag' },
         { content: 'Convert temperatures', status: 'completed', activeForm: 'Converting temperatures' },
         { content: 'Run the tests', status: 'completed', activeForm: 'Running the tests' },
       ] }) },
+      { wait: 150, ev: toolResult(todo2, 'Todos updated', {}) },
       { wait: 100, activity: null },
       { stream: 'Done. `weather --units imperial` now prints Fahrenheit, metric stays the default, and all 3 tests pass.' },
     ];

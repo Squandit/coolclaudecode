@@ -1036,6 +1036,11 @@ function renderEvent(ev) {
     for (const c of ev.message.content || []) if (c.type === 'tool_result') finishTool(c, ev.result, s);
   } else if (ev.type === 'result') {
     endLive();
+    // A finished turn has no running tools. Clear any spinner that never got a result.
+    for (const t of v.tools.values()) {
+      const spin = t.result === undefined && $('.spin', t.el);
+      if (spin) spin.parentElement.innerHTML = '<span class="tool-state" style="color:var(--fg-3)">–</span>';
+    }
     if (ev.isError && ev.text) add(`<div class="err-card">${esc(ev.text)}</div>`);
     const out = ev.usage ? ev.usage.output_tokens || 0 : 0;
     const bits = [];
@@ -1190,7 +1195,9 @@ function appendDiff(parent, filePath, hunks, s, final) {
     if (b.dataset.act === 'copy') copy(adds.join('\n'), 'Copied the new lines');
     if (b.dataset.act === 'grow') { const body = $('.diff-body', el); body.classList.toggle('clip'); b.textContent = body.classList.contains('clip') ? 'expand' : 'collapse'; }
   };
-  parent.appendChild(el);
+  // Keep the diff right under the tool row, above any "you allowed this" note.
+  const anchor = parent.querySelector('.tool-detail') || parent.querySelector('.tool-row');
+  if (anchor) anchor.after(el); else parent.appendChild(el);
   return el;
 }
 

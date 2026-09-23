@@ -5,7 +5,7 @@ html, body { height: 100%; margin: 0; }
 body {
   background: var(--bg);
   color: var(--fg);
-  font: 500 14px/1.55 var(--font);
+  font: 500 13.5px/1.6 var(--font);
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
 }
@@ -52,7 +52,7 @@ svg { flex: none; }
 
 .brand { display: flex; align-items: center; gap: 10px; padding: 18px 18px 12px; }
 .brand-mark { width: 26px; height: 26px; }
-.brand-name { font-weight: 800; font-size: 20px; letter-spacing: -0.03em; }
+.brand-name { font-weight: 800; font-size: 20px; letter-spacing: -0.02em; }
 .brand-demo { margin-left: auto; font-size: 11px; font-weight: 700; color: var(--accent-fg); background: var(--warn); padding: 2px 8px; border-radius: 99px; }
 
 .new-btn {
@@ -147,7 +147,7 @@ kbd {
 .meter + .meter { margin-top: 12px; }
 .meter-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .meter-name { font-weight: 700; font-size: 12px; color: var(--fg-2); }
-.meter-pct { font-weight: 800; font-size: 20px; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.meter-pct { font-weight: 800; font-size: 20px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.1; }
 .meter-bar { position: relative; height: 10px; margin: 6px 0 5px; border-radius: 99px; background: var(--raised); overflow: hidden; }
 .meter-fill { position: absolute; inset: 0 auto 0 0; border-radius: 99px; background: var(--c, var(--ok)); transition: width .5s ease; }
 .meter-fill::after {
@@ -171,7 +171,7 @@ kbd {
 .head-left { flex: 1; min-width: 0; }
 .head-title {
   display: flex; align-items: center; gap: 8px;
-  font-size: 22px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.2;
+  font-size: 22px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.2;
 }
 .head-title span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; outline: none; border-radius: 6px; }
 .head-title span[contenteditable='true'] { background: var(--raised); padding: 0 6px; }
@@ -233,14 +233,14 @@ kbd {
   border-radius: 14px;
   background: color-mix(in srgb, var(--you) 9%, var(--panel));
   border: 1px solid color-mix(in srgb, var(--you) 22%, transparent);
-  font-size: 15.5px; font-weight: 600;
+  font-size: 14.5px; font-weight: 600;
   white-space: pre-wrap; word-wrap: break-word;
 }
 .prompt:first-child { margin-top: 0; }
 .who { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--you); margin-bottom: 4px; }
 .who time { color: var(--fg-3); font-weight: 600; letter-spacing: 0; text-transform: none; margin-left: auto; }
 
-.say { margin: 10px 0; font-size: 15px; line-height: 1.65; color: var(--fg); overflow-wrap: anywhere; }
+.say { margin: 10px 0; font-size: 14px; line-height: 1.65; color: var(--fg); overflow-wrap: anywhere; }
 .say p { margin: 0 0 10px; }
 .say p:last-child { margin-bottom: 0; }
 .say h1, .say h2, .say h3, .say h4 { font-weight: 800; letter-spacing: -0.02em; margin: 18px 0 8px; line-height: 1.25; }
@@ -284,7 +284,7 @@ kbd {
 .tool-state { font-size: 12px; font-weight: 800; }
 .tool-state.ok { color: var(--ok); }
 .tool-state.err { color: var(--bad); }
-.spin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--raised-2); border-top-color: var(--info); animation: spin .8s linear infinite; }
+.spin { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--raised-2); border-top-color: var(--info); animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .tool-detail { margin: 2px 0 8px 42px; }
 .tool-detail pre {
@@ -394,7 +394,7 @@ kbd {
   padding: 14px 16px 6px;
   border: 0; outline: none; resize: none;
   background: transparent;
-  font-size: 15px; font-weight: 600; line-height: 1.5;
+  font-size: 14px; font-weight: 600; line-height: 1.5;
 }
 .composer textarea::placeholder { color: var(--fg-3); font-weight: 700; }
 .composer-bar { display: flex; align-items: center; gap: 12px; padding: 6px 8px 8px 16px; }
@@ -445,7 +445,7 @@ kbd {
 .stats dd { margin: 0; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px; }
 .cost-row { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line-strong); }
 .cost-row span { font-size: 12px; color: var(--fg-3); font-weight: 600; line-height: 1.3; }
-.cost-big { font-size: 22px; font-weight: 800; letter-spacing: -0.03em; color: var(--claude); font-variant-numeric: tabular-nums; }
+.cost-big { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; color: var(--claude); font-variant-numeric: tabular-nums; }
 
 .ctx-bar { display: flex; height: 12px; border-radius: 99px; overflow: hidden; background: var(--raised); margin: 4px 0 10px; }
 .ctx-bar i { display: block; height: 100%; transition: width .4s ease; }
@@ -460,7 +460,7 @@ kbd {
 .page { flex: 1; overflow-y: auto; }
 .page-inner { max-width: 880px; margin: 0 auto; padding: 48px 28px 60px; }
 .eyebrow { font-size: 13px; font-weight: 800; color: var(--claude); letter-spacing: .02em; }
-.hero { margin: 6px 0 6px; font-size: clamp(34px, 5vw, 54px); font-weight: 800; letter-spacing: -0.045em; line-height: 1.02; }
+.hero { margin: 6px 0 6px; font-size: clamp(30px, 4.4vw, 48px); font-weight: 800; letter-spacing: -0.02em; line-height: 1.02; }
 .lede { margin: 0 0 26px; font-size: 16px; color: var(--fg-2); max-width: 560px; }
 
 .starter { border-radius: 18px; background: var(--panel-2); border: 1px solid var(--line-strong); padding: 6px; }
@@ -497,7 +497,7 @@ kbd {
 .table-wrap { border-radius: 14px; border: 1px solid var(--line); background: var(--panel-2); overflow: hidden; }
 
 .empty-session { display: grid; place-items: center; min-height: 100%; padding: 40px 20px; text-align: center; }
-.empty-session h2 { margin: 0 0 6px; font-size: clamp(30px, 4vw, 44px); font-weight: 800; letter-spacing: -0.04em; }
+.empty-session h2 { margin: 0 0 6px; font-size: clamp(30px, 4vw, 44px); font-weight: 800; letter-spacing: -0.02em; }
 .empty-session p { margin: 0; color: var(--fg-3); }
 
 .set-group { margin-top: 34px; }
