@@ -13,6 +13,7 @@ const { spawn, execFile } = require('child_process');
 const { createTerminals } = require('./lib/terminals');
 const gitInfo = require('./lib/git');
 const crewLib = require('./lib/crew');
+const routerLib = require('./lib/router');
 
 const DEMO = process.argv.includes('--demo');
 const PORT = Number(process.env.PORT || argValue('--port') || 4317);
@@ -57,12 +58,15 @@ const DEFAULT_SETTINGS = {
   editor: '',
   shell: '',
   lean: false,
+  auto: true,
   font: 'JetBrains Mono',
   codeFont: 'JetBrains Mono',
   keys: { mod: 'alt', binds: {} },
   crew: crewLib.DEFAULT_CREW,
+  router: routerLib.DEFAULT_ROUTER,
 };
 let settings = { ...DEFAULT_SETTINGS, ...readJSON('settings.json', {}) };
+settings.router = routerLib.cleanRouter(settings.router);
 let sessions = readJSON('sessions.json', []);
 let usage = readJSON('usage.json', null);
 
@@ -165,7 +169,16 @@ function claudeArgs(s) {
 
 // On Windows the CLI runs through cmd.exe, which splits unquoted arguments on spaces.
 function winQuote(a) {
+  if (a === '') return '""';
   return /[\s"&|<>^()]/.test(a) ? `"${String(a).replace(/"/g, '\\"')}"` : a;
+}
+
+// If desk itself was launched from inside a Claude Code session, don't let the
+// child think it is that session.
+function childEnv() {
+  const env = { ...process.env };
+  delete env.CLAUDECODE; delete env.CLAUDE_CODE_SESSION_ID; delete env.CLAUDE_CODE_ENTRYPOINT;
+  return env;
 }
 
 function startRunner(s) {
@@ -173,16 +186,15 @@ function startRunner(s) {
   if (existing && !existing.dead) return existing;
 
   const cmd = IS_WIN && /\s/.test(settings.claudePath) ? `"${settings.claudePath}"` : settings.claudePath;
-  const env = { ...process.env };
-  // If desk itself was launched from inside a Claude Code session, don't let the
-  // child think it is that session.
-  delete env.CLAUDECODE; delete env.CLAUDE_CODE_SESSION_ID; delete env.CLAUDE_CODE_ENTRYPOINT;
+  const env = childEnv();
 
   const child = DEMO
     ? require('./demo').spawnFake(s)
     : spawn(cmd, IS_WIN ? claudeArgs(s).map(winQuote) : claudeArgs(s), { cwd: s.cwd, env, shell: IS_WIN, windowsHide: true });
 
-  const r = { child, pending: new Map(), lastCost: 0, lastModelCost: {}, agentCalls: new Map(), helperProgress: new Map(), dead: false, stderr: '', idleTimer: null, turnOpen: false };
+  // A resumed session carries its old cost totals into the new process; carry says
+  // what they were, so the first result isn't counted twice.
+  const r = { child, carry: s.started ? s.cliTotals || null : null, pending: new Map(), lastCost: 0, lastModelCost: {}, agentCalls: new Map(), helperProgress: new Map(), dead: false, stderr: '', idleTimer: null, turnOpen: false };
   runners.set(s.id, r);
 
   const send = (obj) => { if (!r.dead) child.stdin.write(JSON.stringify(obj) + '\n'); };
@@ -312,6 +324,13 @@ function handleClaudeEvent(s, r, ev) {
       return;
     }
     case 'result': {
+      if (r.carry) {
+        const c = r.carry, mu = ev.modelUsage || {};
+        const carried = (ev.total_cost_usd || 0) >= c.cost - 1e-9
+          && Object.entries(c.models).every(([k, v]) => mu[k] && (mu[k].costUSD || 0) >= v - 1e-9);
+        if (carried) { r.lastCost = c.cost; r.lastModelCost = { ...c.models }; }
+        r.carry = null;
+      }
       const turnCost = Math.max(0, (ev.total_cost_usd || 0) - r.lastCost);
       r.lastCost = ev.total_cost_usd || 0;
       // Cost per model this turn (the CLI reports running totals for the process).
@@ -338,6 +357,7 @@ function handleClaudeEvent(s, r, ev) {
       });
       r.turnOpen = false;
       r.pending.clear();
+      s.cliTotals = { cost: r.lastCost, models: { ...r.lastModelCost } };
       touch(s, { status: r.stopped ? 'idle' : ev.is_error ? 'error' : 'done' });
       armIdle(s, r);
       return;
@@ -411,17 +431,114 @@ function crewStats() {
   return { total: rows.length, levels: Object.values(levels).map((L) => ({ ...L, avgTokens: L.runs ? Math.round(L.tokens / L.runs) : 0, avgMs: L.runs ? Math.round(L.ms / L.runs) : 0 })) };
 }
 
+// Prompts go through a per-session queue so a message typed while the router is
+// still deciding can't overtake the one before it.
+const sendQueues = new Map();
 function sendPrompt(s, text) {
+  s.cancelRoute = false;
+  appendEvent(s, { t: 'prompt', text });
+  const patch = { status: 'working' };
+  if (!s.titled && (!s.title || s.title === 'new session')) patch.title = titleFrom(text);
+  touch(s, patch);
+  const prev = sendQueues.get(s.id) || Promise.resolve();
+  const next = prev.then(() => deliver(s, text)).catch((err) => {
+    appendEvent(s, { t: 'error', text: String(err && err.message || err) });
+    touch(s, { status: 'error' });
+  });
+  sendQueues.set(s.id, next);
+  next.then(() => { if (sendQueues.get(s.id) === next) sendQueues.delete(s.id); });
+}
+
+async function deliver(s, text) {
+  const live = runners.get(s.id);
+  // Mid-turn messages join the running turn, so there's nothing to route.
+  if (s.auto && !s.crew && !(live && live.turnOpen)) await autoRoute(s, text);
+  // Stop was pressed while the router was still deciding.
+  if (s.cancelRoute) { s.cancelRoute = false; appendEvent(s, { t: 'error', text: 'Stopped.' }); touch(s, { status: 'idle' }); return; }
   const r = startRunner(s);
   if (r.dead) return;
   r.turnOpen = true;
   r.stopped = false;
   clearTimeout(r.idleTimer);
-  appendEvent(s, { t: 'prompt', text });
-  const patch = { status: 'working' };
-  if (!s.titled && (!s.title || s.title === 'new session')) patch.title = titleFrom(text);
-  touch(s, patch);
+  if (s.status !== 'working') touch(s, { status: 'working' });
   r.send({ type: 'user', message: { role: 'user', content: text }, parent_tool_use_id: null, session_id: '' });
+}
+
+// What the router gets to see besides the new message: the previous request, the
+// start of Claude's last reply, and how big the context is now.
+function routeContext(s) {
+  const events = readEvents(s.id);
+  let lastPrompt = '', lastReply = '', ctx = 0, prompts = 0;
+  for (let i = events.length - 1; i >= 0; i--) {
+    const ev = events[i];
+    if (ev.t === 'prompt') { prompts++; if (prompts === 2) lastPrompt = ev.text; }
+    if (ev.type === 'assistant' && !ev.parent) {
+      const u = ev.message.usage;
+      if (!ctx && u) ctx = (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0);
+      if (!lastReply) { const t = (ev.message.content || []).find((c) => c.type === 'text' && c.text.trim()); if (t) lastReply = t.text; }
+    }
+    if (prompts >= 2 && lastReply && ctx) break;
+  }
+  return { lastPrompt, lastReply, ctx, first: prompts <= 1 };
+}
+
+async function autoRoute(s, text) {
+  const router = settings.router;
+  const c = routeContext(s);
+  if (!c.first && routerLib.isFollowUp(text)) return;
+  broadcast({ kind: 'activity', id: s.id, text: 'Picking a model' });
+  const current = s.routeLevel || null;
+  const ask = { text, current, lastPrompt: c.lastPrompt, lastReply: c.lastReply };
+  const got = DEMO ? await routerLib.fakePick(ask)
+    : await routerLib.pick({ ...ask, claudePath: settings.claudePath, dataDir: DATA, router, isWin: IS_WIN, winQuote, env: childEnv() });
+  broadcast({ kind: 'activity', id: s.id, text: null });
+  if (got.error) {
+    appendEvent(s, { t: 'route', error: got.error, model: s.model, effort: s.effort, cost: got.cost || 0, ms: got.ms });
+    return;
+  }
+  const target = router.levels[got.level];
+  const same = target.model === s.model && (target.effort || '') === (s.effort || '');
+  // In a big conversation a switch means re-reading all of it without the cache,
+  // so from there the route only steps up.
+  const held = !same && !c.first && c.ctx > router.stickAt
+    && routerLib.rank(target.model, target.effort) < routerLib.rank(s.model, s.effort);
+  appendEvent(s, {
+    t: 'route', level: got.level, why: got.why, cost: got.cost, ms: got.ms,
+    model: held ? s.model : target.model, effort: held ? s.effort : target.effort,
+    held: held ? { model: target.model, effort: target.effort, ctx: c.ctx } : undefined,
+  });
+  logRoute({ level: got.level, model: target.model, effort: target.effort, held: held || undefined, ms: got.ms, cost: got.cost });
+  if (held || same) { if (!held) touch(s, { routeLevel: got.level }); return; }
+  touch(s, { model: target.model, effort: target.effort, routeLevel: got.level });
+  await stopRunner(s);
+}
+
+function logRoute(row) {
+  if (DEMO) return;
+  try { fs.appendFileSync(path.join(DATA, 'route-log.jsonl'), JSON.stringify({ ts: Date.now(), ...row }) + '\n'); } catch {}
+}
+function routeStats() {
+  const out = {};
+  if (DEMO) return { easy: 14, normal: 9, think: 4, hard: 2 };
+  try {
+    for (const l of fs.readFileSync(path.join(DATA, 'route-log.jsonl'), 'utf8').split('\n')) {
+      if (!l) continue;
+      try { const r = JSON.parse(l); out[r.level] = (out[r.level] || 0) + 1; } catch {}
+    }
+  } catch {}
+  return out;
+}
+
+// Model and effort are launch flags: end an idle process and wait for it to go,
+// so the next message starts a fresh one that resumes the session.
+function stopRunner(s) {
+  const r = runners.get(s.id);
+  if (!r || r.dead) return Promise.resolve();
+  return new Promise((resolve) => {
+    const t = setTimeout(() => { killTree(r.child); resolve(); }, 5000);
+    r.child.once('close', () => { clearTimeout(t); resolve(); });
+    try { r.child.stdin.end(); } catch {}
+  });
 }
 
 function titleFrom(text) {
@@ -449,6 +566,7 @@ function answerPermission(s, requestId, decision) {
 }
 
 function stopSession(s) {
+  if (sendQueues.has(s.id)) s.cancelRoute = true;
   const r = runners.get(s.id);
   if (!r) return;
   r.stopped = true;
@@ -633,7 +751,7 @@ function expandPath(p) {
   return path.resolve(p);
 }
 
-function newSession({ cwd, title, sessionId, started, crew, lean }) {
+function newSession({ cwd, title, sessionId, started, crew, lean, auto }) {
   const n = sessions.reduce((m, s) => Math.max(m, s.number || 0), 0) + 1;
   const s = {
     id: crypto.randomUUID(),
@@ -646,6 +764,7 @@ function newSession({ cwd, title, sessionId, started, crew, lean }) {
     permission: settings.permission,
     crew: !!crew,
     lean: lean === undefined ? !!settings.lean : !!lean,
+    auto: crew ? false : auto === undefined ? !!settings.auto : !!auto,
     status: 'idle',
     started: !!started,
     open: true,
@@ -757,6 +876,8 @@ async function route(req, res, url) {
     if (typeof settings.rice !== 'string' || settings.rice.length > 50000) settings.rice = '';
     for (const k of ['font', 'codeFont']) if (typeof settings[k] !== 'string' || settings[k].length > 60) settings[k] = 'JetBrains Mono';
     settings.crew = crewLib.cleanCrew(settings.crew);
+    settings.router = routerLib.cleanRouter(settings.router);
+    settings.auto = !!settings.auto;
     if (body.crew) for (const x of sessions) if (x.crew) {
       Object.assign(x, { model: settings.crew.planner.model, effort: settings.crew.planner.effort });
       broadcast({ kind: 'session', session: publicSession(x) });
@@ -769,6 +890,8 @@ async function route(req, res, url) {
     broadcast({ kind: 'settings', settings });
     return json(res, 200, settings);
   }
+
+  if (m === 'GET' && parts[0] === 'router') return json(res, 200, { defaults: routerLib.DEFAULT_ROUTER, levels: routerLib.LEVELS, stats: routeStats() });
 
   if (m === 'GET' && parts[0] === 'crew') return json(res, 200, { defaults: crewLib.DEFAULT_CREW, stats: crewStats() });
 
@@ -825,7 +948,7 @@ async function route(req, res, url) {
       const cwd = expandPath(body.cwd || settings.defaultCwd || HOME_DIR);
       if (DEMO) fs.mkdirSync(cwd, { recursive: true });
       if (!fs.existsSync(cwd) || !fs.statSync(cwd).isDirectory()) return json(res, 400, { error: `No folder at ${body.cwd}` });
-      const s = newSession({ cwd, title: body.title, crew: !!body.crew, lean: body.lean });
+      const s = newSession({ cwd, title: body.title, crew: !!body.crew, lean: body.lean, auto: body.auto });
       if (body.prompt) sendPrompt(s, body.prompt);
       return json(res, 200, publicSession(s));
     }
@@ -862,12 +985,15 @@ async function route(req, res, url) {
       if (typeof body.pinned === 'boolean') patch.pinned = body.pinned;
       let relaunch = false;
       for (const k of ['model', 'effort', 'permission']) if (body[k] && body[k] !== s[k]) { patch[k] = body[k]; relaunch = true; }
+      // Picking a model or effort by hand means you want that one, so auto route steps aside.
+      if ((patch.model || patch.effort) && s.auto && body.auto === undefined) patch.auto = false;
+      if (typeof body.auto === 'boolean' && body.auto !== !!s.auto) { patch.auto = body.auto; if (body.auto) patch.routeLevel = null; }
       if (typeof body.lean === 'boolean' && body.lean !== !!s.lean) { patch.lean = body.lean; relaunch = true; }
       if (typeof body.crew === 'boolean' && body.crew !== !!s.crew) {
         patch.crew = body.crew;
         relaunch = true;
         // Crew mode runs the planner's model; going back to solo keeps whatever it was.
-        if (body.crew) { patch.model = settings.crew.planner.model; patch.effort = settings.crew.planner.effort; }
+        if (body.crew) { patch.model = settings.crew.planner.model; patch.effort = settings.crew.planner.effort; patch.auto = false; }
       }
       touch(s, patch);
       if (relaunch) restartIfIdle(s);

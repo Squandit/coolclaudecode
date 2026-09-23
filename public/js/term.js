@@ -348,7 +348,54 @@ document.addEventListener('click', (e) => {
   const go = e.target.closest('[data-crew-go]');
   if (go) { go.disabled = true; panes.get(go.dataset.crewGo)?.sendText('go'); return; }
   if (e.target.closest('[data-crew-edit]')) openCrew();
+  if (e.target.closest('[data-routes-edit]')) openRoutes();
 });
+
+async function openRoutes() {
+  const MODELS_ = ['haiku', 'sonnet', 'opus', 'fable'];
+  const EFFORTS_ = ['', 'low', 'medium', 'high', 'xhigh', 'max'];
+  let info = { defaults: null, levels: [], stats: {} };
+  try { info = await api('GET', '/router'); } catch {}
+  let router = JSON.parse(JSON.stringify(st.settings.router || info.defaults));
+  let auto = !!st.settings.auto;
+  const sel = (list, v, attr) => `<select ${attr}>${list.map((x) => `<option value="${x}" ${x === v ? 'selected' : ''}>${x || 'default'}</option>`).join('')}</select>`;
+  const draw = () => `<div class="crew-pane">
+    <p class="crew-intro">Before each message, Haiku reads it and picks a level: about two seconds and a fifth of a cent. Short replies like "ok" or "go" skip it and stay where they are. Turn it on or off per session from the model pill in the header.</p>
+    <table class="table crew-table">
+      <thead><tr><th>Level</th><th>Model</th><th>Effort</th><th>What goes there</th><th class="num">Picked</th></tr></thead>
+      <tbody>
+        ${info.levels.map((l) => {
+          const v = router.levels[l.id] || {};
+          return `<tr><td><span class="route-lvl">${esc(l.id)}</span></td><td>${sel(MODELS_, v.model, `data-l="${l.id}" data-k="model"`)}</td><td>${sel(EFFORTS_, v.effort, `data-l="${l.id}" data-k="effort"`)}</td><td class="dim">${esc(l.job)}</td><td class="num">${info.stats[l.id] || '·'}</td></tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+    <div class="crew-opts">
+      <label>Past <input class="text-in num-in wide" type="number" min="0" step="5000" data-opt="stickAt" value="${router.stickAt}"> tokens of context, only step up (switching down would re-read the whole conversation without the cache)</label>
+      <label class="chk"><input type="checkbox" data-opt="auto" ${auto ? 'checked' : ''}> New sessions start with auto route on</label>
+    </div>
+    <div class="crew-actions">
+      <button class="btn primary" data-save>Save</button>
+      <button class="link-btn" data-defaults>Reset to defaults</button>
+    </div>
+  </div>`;
+  const win = openModal({ title: 'Auto route', sub: 'which model handles what', cls: 'crew-modal', body: draw() });
+  const body = $('.modal-body', win);
+  body.oninput = body.onchange = (e) => {
+    const t = e.target;
+    if (t.dataset.l) router.levels[t.dataset.l][t.dataset.k] = t.value;
+    else if (t.dataset.opt === 'stickAt') router.stickAt = +t.value || 0;
+    else if (t.dataset.opt === 'auto') auto = t.checked;
+  };
+  body.onclick = async (e) => {
+    if (e.target.closest('[data-defaults]')) { router = JSON.parse(JSON.stringify(info.defaults)); body.innerHTML = draw(); return; }
+    if (e.target.closest('[data-save]')) {
+      await saveSettings({ router, auto }, { apply: false });
+      toast('Routes saved. They apply from the next message.');
+      closeModal();
+    }
+  };
+}
 
 async function openCrew() {
   const MODELS_ = ['haiku', 'sonnet', 'opus', 'fable'];

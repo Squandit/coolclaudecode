@@ -4,11 +4,13 @@ A local web UI for Claude Code. Several sessions run side by side, and permissio
 
 It drives the `claude` CLI you already have installed, so it uses your existing login. That works with a Pro or Max subscription, and you don't need an API key. Every session is a normal Claude Code session, which means you can pick any of them up in the terminal with `claude --resume`. It also works the other way: sessions you started in the terminal show up in desk, ready to resume.
 
+**Auto route** picks the model for you. Before each message, Haiku reads it and sends it to the cheapest level that fits: Sonnet for simple and ordinary coding, Opus when you're asking what to do or the problem is hard. That costs about two seconds and a fifth of a cent per message. Which model each level uses is up to you (Edit the routes, from the model pill).
+
 **Crew mode** is for bigger jobs. An Opus planner splits your request into tasks and hands each one to the cheapest helper level that can do it well: a Haiku scout for reading, then Sonnet at medium, high and xhigh effort, then Opus at low, medium, high and xhigh. Failed tasks move up a level. You approve the plan first, and the side panel shows every task's level, any escalations, and cost per model. Helpers are loaded as a Claude Code plugin for that session only, so nothing is added to your normal Claude Code setup.
 
 **Lean sessions** give Claude only the file and shell tools, which makes every step's prompt much smaller and so uses less of your limit. Toggle it with the pill in the header.
 
-**Benchmarks.** `npm run bench -- "your prompt"` runs the same task solo, solo-lean, crew and crew-lean side by side and prints the time, cost, tokens and test results for each. Add `--from ~/code/project` to run it on a copy of a real project. It uses your plan like any other session.
+**Benchmarks.** `npm run bench -- "your prompt"` runs the same task solo, auto, solo-lean and crew-lean side by side (crew is there too) and prints the time, cost, tokens and test results for each. Add `--from ~/code/project` to run it on a copy of a real project. It uses your plan like any other session.
 
 Other things it does: a real terminal in the page (Ctrl \`), a git Changes card with diffs, "open" on any file to start your editor on it in a terminal, and a theme switcher (Alt T). [CHANGELOG.md](CHANGELOG.md) has the full list.
 
@@ -69,6 +71,7 @@ The server only listens on `127.0.0.1`. It rejects requests that don't come from
 | `lib/terminals.js` | Shells over node-pty |
 | `lib/git.js` | git status and diffs |
 | `lib/crew.js` | Crew levels, the helper plugin and the planner's instructions |
+| `lib/router.js` | Auto route: the Haiku call that picks a model for each message |
 | `bench.js` | Runs one prompt several ways and compares them |
 | `public/js/classic.js` | The classic layout |
 | `public/js/tiling.js` | The riced layout, desk.conf parsing and palettes |

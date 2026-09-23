@@ -414,6 +414,7 @@ const Classic = {
         </div>
 
         <div class="set-group"><h2>New sessions start with</h2><p>You can change any of these per session from the header.</p>
+          <div class="set-row"><label>Auto route<small>Haiku reads each request and picks the model and effort from the table below. When it's off, the model and effort here are used.</small></label><button class="switch ${s.auto ? 'on' : ''}" id="auto-default" aria-pressed="${!!s.auto}"></button></div>
           <div class="set-row"><label>Model</label>${seg('model', MODELS)}</div>
           <div class="set-row"><label>Effort<small>How hard Claude thinks</small></label>${seg('effort', EFFORTS.map((e) => ({ ...e, name: e.id })))}</div>
           <div class="set-row"><label>Permissions<small>What Claude can do without asking</small></label>${seg('permission', PERMS)}</div>
@@ -429,6 +430,10 @@ const Classic = {
           <div class="set-row"><label>Editor<small>Leave empty to use <span class="mono">$EDITOR</span></small></label><input class="text-in" data-text="editor" value="${esc(s.editor || '')}" placeholder="${esc(Terms.info.editor || 'nvim')}" spellcheck="false"></div>
           <div class="set-row"><label>Shell<small>Leave empty for your login shell</small></label><input class="text-in" data-text="shell" value="${esc(s.shell || '')}" placeholder="${esc(Terms.info.shell || '')}" spellcheck="false"></div>
           ${Terms.info.available ? '' : `<div class="set-row"><label>Status</label><span style="color:var(--bad)">Off: node-pty is ${esc(Terms.info.error || 'missing')}. Run <span class="mono">npm install</span> and restart.</span></div>`}
+        </div>
+
+        <div class="set-group"><h2>Auto route</h2><p>Which model handles each kind of request. Haiku picks the level, which costs about a fifth of a cent and two seconds. Once a conversation passes ${fmtTokens(((s.router || {}).stickAt) || 40000)} tokens it only steps up, because switching down would re-read the whole thing without the cache.</p>
+          <button class="btn" data-routes-edit>Edit the routes</button>
         </div>
 
         <div class="set-group"><h2>Crew</h2><p>A planner (${esc(((s.crew || {}).planner || {}).model || 'opus')}) splits the work and hands each task to the cheapest helper that can do it. Turn it on per session with the crew pill in the header, or the Crew button when you start one.</p>
@@ -464,6 +469,12 @@ const Classic = {
         $$(fc.dataset.font ? '[data-font]' : '[data-codefont]', main).forEach((x) => x.classList.toggle('sel', x === fc));
         await saveSettings({ [key]: fc.dataset.font || fc.dataset.codefont });
         Terms.retheme();
+        return;
+      }
+      if (e.target.closest('#auto-default')) {
+        const on = !st.settings.auto;
+        $('#auto-default').classList.toggle('on', on);
+        saveSettings({ auto: on });
         return;
       }
       if (e.target.closest('#lean-default')) {

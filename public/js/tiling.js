@@ -593,6 +593,7 @@ const Tiling = {
     items.push({ glyph: '◐', label: 'themes', sub: Keys.label('themes'), act: done(() => openThemePicker()) });
     items.push({ glyph: '✎', label: 'desk.conf', sub: Keys.label('config'), act: done(() => this.openConfig()) });
     items.push({ glyph: '⚑', label: 'edit the crew', sub: 'helper levels and stats', act: done(() => openCrew()) });
+    items.push({ glyph: '↳', label: 'auto route', sub: 'which model handles easy, normal, think and hard', act: done(() => openRoutes()) });
     items.push({ glyph: '⌨', label: 'keyboard shortcuts', sub: `modifier: ${Keys.mod().label}`, act: done(() => openShortcuts()) });
     items.push({ glyph: '★', label: "what's new", sub: 'changelog', act: done(() => openChangelog()) });
     const words = q.toLowerCase().split(/\s+/).filter(Boolean);

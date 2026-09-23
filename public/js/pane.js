@@ -258,8 +258,10 @@ class Pane {
         </div>
       </div>
       <div class="head-right">
-        <button class="pill model" data-menu="model">${esc(model ? model.name : s.model)}</button>
-        <button class="pill" data-menu="effort">${esc(effort ? effort.name : s.effort)}</button>
+        ${s.auto && !s.crew
+          ? `<button class="pill auto-pill on" data-menu="auto" title="Auto route: Haiku picks the model and effort for each request${s.routeLevel ? `. Last pick: ${esc(s.routeLevel)}` : ''}">auto · ${esc(model ? model.name : s.model)} ${esc(s.effort || '')}</button>`
+          : `<button class="pill model" data-menu="model">${esc(model ? model.name : s.model)}</button>
+        <button class="pill" data-menu="effort">${esc(effort ? effort.name : s.effort)}</button>`}
         <button class="pill perm-${s.permission}" data-menu="perm">${esc(perm ? perm.name : s.permission)}</button>
         <button class="pill lean-pill ${s.lean ? 'on' : ''}" data-lean title="Lean: only file and shell tools, so every step sends a much smaller prompt. No web search, MCP or other extras.">${s.lean ? 'lean' : 'full tools'}</button>
         <button class="pill crew-pill ${s.crew ? 'on' : ''}" data-menu="crew" title="Crew: a planner hands tasks to helpers at different levels">${ICON.agent}${s.crew ? 'crew' : 'solo'}</button>
@@ -303,7 +305,13 @@ class Pane {
   openMenu(anchor, kind) {
     const s = this.s;
     let items;
-    if (kind === 'model') items = MODELS.map((m) => ({ id: m.id, main: m.name, sel: s.model === m.id }));
+    const autoItem = { id: 'auto', main: 'Auto', sub: 'Haiku picks the model and effort for each request' };
+    if (kind === 'model') items = [...(s.crew ? [] : [autoItem]), ...MODELS.map((m) => ({ id: m.id, main: m.name, sel: s.model === m.id }))];
+    else if (kind === 'auto') items = [
+      { ...autoItem, sel: true },
+      { id: 'manual', main: 'Pick them myself', sub: `Keep ${(byId(MODELS, s.model) || {}).name || s.model} ${s.effort || ''} for every message` },
+      { id: 'routes', main: 'Edit the routes…', sub: 'Which model handles easy, normal, think and hard' },
+    ];
     else if (kind === 'effort') items = EFFORTS.map((m) => ({ id: m.id, main: m.name, sel: s.effort === m.id }));
     else if (kind === 'perm') items = PERMS.map((m) => ({ id: m.id, main: m.name, sub: m.sub, sel: s.permission === m.id }));
     else if (kind === 'crew') items = [
@@ -319,6 +327,8 @@ class Pane {
     ];
     openMenu(anchor, kind + this.id, items, async (id) => {
       if (kind === 'crew') { if (id === 'edit') openCrew(); else await this.patch({ crew: id === 'crew' }); return; }
+      if (id === 'auto') { if (!s.auto) await this.patch({ auto: true }); return; }
+      if (kind === 'auto') { if (id === 'manual') await this.patch({ auto: false }); else openRoutes(); return; }
       if (kind === 'model') await this.patch({ model: id });
       else if (kind === 'effort') await this.patch({ effort: id });
       else if (kind === 'perm') await this.patch({ permission: id });
@@ -340,6 +350,7 @@ class Pane {
       this.renderHead();
       renderTraySoon();
       if (s.status === 'working' && (patch.model || patch.effort || patch.permission)) toast('Takes effect from the next message');
+      else if ((patch.model || patch.effort) && s.auto && !next.auto) toast('Auto route is off for this session, since you picked');
     } catch (err) { toast(err.message); }
   }
 
@@ -398,6 +409,10 @@ class Pane {
           }
         }
       }
+    } else if (ev.t === 'route') {
+      m.cost += ev.cost || 0;
+      if (ev.cost) m.byModel.haiku = (m.byModel.haiku || 0) + ev.cost;
+      if (ev.level) m.routeLevel = ev.level;
     } else if (ev.t === 'helper-done') {
       const run = m.crewRuns.get(ev.toolUseId);
       if (run) Object.assign(run, { status: ev.status === 'completed' ? 'done' : 'failed', tokens: ev.tokens, ms: ev.ms });
@@ -470,6 +485,8 @@ class Pane {
       this.add(`<div class="prompt"><div class="who">you<time>${esc(time)}</time></div><div class="prompt-text">${esc(ev.text)}</div></div>`);
     } else if (ev.t === 'compact') {
       this.add(`<div class="divider">context compacted</div>`);
+    } else if (ev.t === 'route') {
+      this.add(routeRow(ev));
     } else if (ev.t === 'error') {
       this.endLive();
       this.add(`<div class="err-card">${esc(ev.text)}</div>`);
@@ -943,6 +960,7 @@ function trayCards(p) {
         <dt>Cache read / write</dt><dd>${fmtTokens(m.cacheR)} / ${fmtTokens(m.cacheW)}</dd>
         <dt>Model</dt><dd>${esc(shortModel(m.modelName || s.modelName) || s.model)}</dd>
         <dt>Effort</dt><dd>${esc(s.effort || 'default')}</dd>
+        ${s.auto ? `<dt>Auto route</dt><dd>${esc(m.routeLevel || 'on')}</dd>` : ''}
         <dt>Session</dt><dd title="${esc(s.sessionId)}">${esc(s.sessionId.slice(0, 8))}</dd>
       </dl>
       <div class="cost-row"><span>Cost<br>API equivalent</span><span class="cost-big">${fmtCost(m.cost)}</span></div>
@@ -957,6 +975,16 @@ function trayCards(p) {
       </div>
       <div class="ctx-note">Claude Code compacts on its own as this fills. Type <span class="mono">/compact</span> to do it now.</div>
     </section>`;
+}
+
+// ------------------------------------------------------------------ auto route
+
+function routeRow(ev) {
+  const name = (model, effort) => `${esc((byId(MODELS, model) || {}).name || model)}${effort ? ' ' + esc(effort) : ''}`;
+  const meta = [ev.ms ? fmtDur(ev.ms) : '', ev.cost ? fmtCost(ev.cost) : ''].filter(Boolean).join(' · ');
+  if (ev.error) return `<div class="route-row err"><span class="route-arrow">↳</span><span>auto route failed, kept <b>${name(ev.model, ev.effort)}</b></span><span class="dim">${esc(ev.error)}</span></div>`;
+  if (ev.held) return `<div class="route-row held"><span class="route-arrow">↳</span><span><span class="route-lvl">${esc(ev.level)}</span> kept <b>${name(ev.model, ev.effort)}</b></span><span class="dim">would be ${name(ev.held.model, ev.held.effort)}, but switching now re-reads ${fmtTokens(ev.held.ctx)} tokens · ${esc(meta)}</span></div>`;
+  return `<div class="route-row"><span class="route-arrow">↳</span><span><span class="route-lvl">${esc(ev.level)}</span> <b>${name(ev.model, ev.effort)}</b></span><span class="dim">${esc(ev.why || '')}${ev.why && meta ? ' · ' : ''}${esc(meta)}</span></div>`;
 }
 
 // ------------------------------------------------------------------ crew

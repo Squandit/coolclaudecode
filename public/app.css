@@ -689,6 +689,7 @@ kbd.listening { color: var(--hot); border-color: var(--hot); animation: blink 1s
 .crew-table .planner-row td { border-bottom: 1px solid var(--line-strong); }
 .crew-opts { display: flex; flex-wrap: wrap; gap: 10px 28px; margin: 16px 0 6px; font-size: 13px; align-items: center; }
 .crew-opts .num-in { width: 60px; display: inline-block; margin: 0 4px; }
+.crew-opts .num-in.wide { width: 90px; }
 .crew-opts .chk { display: inline-flex; align-items: center; gap: 8px; }
 .crew-actions { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
 
@@ -704,3 +705,12 @@ body.font-sans .hero, body.font-sans .head-title, body.font-sans .brand-name { l
 
 .pill.lean-pill { color: var(--fg-3); }
 .pill.lean-pill.on { color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, var(--raised)); }
+.pill.auto-pill { color: var(--fg-3); }
+.pill.auto-pill.on { color: var(--info); background: color-mix(in srgb, var(--info) 14%, var(--raised)); }
+.route-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin: 2px 0 10px; font-size: 12px; color: var(--fg-2); }
+.route-row .route-arrow { color: var(--info); font-weight: 700; }
+.route-row b { color: var(--fg); }
+.route-lvl { font-family: var(--font-mono); font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 4px; color: var(--info); background: color-mix(in srgb, var(--info) 14%, transparent); }
+.route-row.held .route-lvl { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.route-row.err { color: var(--bad); }
+.route-row.err .route-arrow { color: var(--bad); }

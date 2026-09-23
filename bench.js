@@ -13,10 +13,12 @@ const path = require('path');
 const readline = require('readline');
 const { spawn, spawnSync } = require('child_process');
 const crewLib = require('./lib/crew');
+const routerLib = require('./lib/router');
 
 const IS_WIN = process.platform === 'win32';
 const VARIANTS = {
   solo: { crew: false, lean: false, about: 'one session, all tools' },
+  auto: { crew: false, lean: false, auto: true, about: 'Haiku picks the model and effort, then one session with all tools' },
   'solo-lean': { crew: false, lean: true, about: 'one session, file and shell tools only' },
   crew: { crew: true, lean: false, about: 'planner + helpers, all tools' },
   'crew-lean': { crew: true, lean: true, about: 'planner + helpers, file and shell tools only' },
@@ -25,7 +27,7 @@ const VARIANTS = {
 // ------------------------------------------------------------------ options
 
 function parseArgs(argv) {
-  const o = { variants: ['solo', 'solo-lean', 'crew', 'crew-lean'], model: 'opus', effort: 'high', timeout: 30, parallel: true, claude: 'claude' };
+  const o = { variants: ['solo', 'auto', 'solo-lean', 'crew-lean'], model: 'opus', effort: 'high', timeout: 30, parallel: true, claude: 'claude' };
   const rest = [];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -55,7 +57,7 @@ const HELP = `desk bench: run one prompt several ways and compare usage, time an
   node bench.js "prompt"                      run the prompt in fresh empty folders
   node bench.js --prompt-file task.txt        read the prompt from a file
   --from <folder>        copy this project into each run (node_modules is skipped)
-  --variants a,b         any of: ${Object.keys(VARIANTS).join(', ')} (default: all four)
+  --variants a,b         any of: ${Object.keys(VARIANTS).join(', ')} (default: solo, auto, solo-lean, crew-lean)
   --model opus --effort high     solo model and effort (crew uses your crew settings)
   --check "<command>"    how to judge the result (default: npm test or node --test)
   --one-at-a-time        run variants one after another instead of together
@@ -64,12 +66,13 @@ const HELP = `desk bench: run one prompt several ways and compare usage, time an
 
 // ------------------------------------------------------------------ helpers
 
-function winQuote(a) { return /[\s"&|<>^()]/.test(a) ? `"${String(a).replace(/"/g, '\\"')}"` : a; }
+function winQuote(a) { if (a === '') return '""'; return /[\s"&|<>^()]/.test(a) ? `"${String(a).replace(/"/g, '\\"')}"` : a; }
 
-function deskCrewSettings() {
+function deskSettings() {
   const home = process.env.DESK_HOME || path.join(os.homedir(), '.desk');
-  try { return JSON.parse(fs.readFileSync(path.join(home, 'settings.json'), 'utf8')).crew; } catch { return null; }
+  try { return JSON.parse(fs.readFileSync(path.join(home, 'settings.json'), 'utf8')); } catch { return {}; }
 }
+function deskCrewSettings() { return deskSettings().crew || null; }
 
 function copyProject(from, to) {
   const skip = new Set(['node_modules', 'bench-results', '.desk']);
@@ -126,8 +129,17 @@ function runCheck(dir, cmd) {
 
 // ------------------------------------------------------------------ one run
 
-function runVariant(name, opts, outDir) {
+async function runVariant(name, opts, outDir) {
   const v = VARIANTS[name];
+  let route = null;
+  if (v.auto) {
+    route = await routerLib.pick({
+      text: opts.prompt, claudePath: opts.claude, dataDir: outDir, router: routerLib.cleanRouter(deskSettings().router),
+      isWin: IS_WIN, winQuote, env: { ...process.env },
+    });
+    if (!route.error) Object.assign(route, routerLib.cleanRouter(deskSettings().router).levels[route.level]);
+    process.stdout.write(`  auto routed to ${route.error ? `nothing (${route.error}), using ${opts.model}` : `${route.level}: ${route.model} ${route.effort || ''}`}\n`);
+  }
   const work = path.join(outDir, name);
   fs.mkdirSync(work, { recursive: true });
   if (opts.from) copyProject(opts.from, work);
@@ -142,6 +154,9 @@ function runVariant(name, opts, outDir) {
     const files = crewLib.writeCrewFiles(path.join(outDir, `.${name}-crew`), crew);
     args.push('--model', crew.planner.model, '--plugin-dir', files.pluginDir, '--append-system-prompt-file', files.plannerFile);
     if (crew.planner.effort) args.push('--effort', crew.planner.effort);
+  } else if (route && !route.error) {
+    args.push('--model', route.model);
+    if (route.effort) args.push('--effort', route.effort);
   } else {
     args.push('--model', opts.model);
     if (opts.effort) args.push('--effort', opts.effort);
@@ -152,7 +167,7 @@ function runVariant(name, opts, outDir) {
   delete env.CLAUDECODE; delete env.CLAUDE_CODE_SESSION_ID; delete env.CLAUDE_CODE_ENTRYPOINT;
   const log = fs.createWriteStream(path.join(outDir, `${name}.jsonl`));
   const started = Date.now();
-  const st = { name, results: [], helpers: new Map(), calls: new Map(), usageBefore: null, usageAfter: null, error: null };
+  const st = { name, route, results: [], helpers: new Map(), calls: new Map(), usageBefore: null, usageAfter: null, error: null };
 
   return new Promise((resolve) => {
     const cmd = IS_WIN && /\s/.test(opts.claude) ? `"${opts.claude}"` : opts.claude;
@@ -236,7 +251,8 @@ function summarise(st) {
     name: st.name,
     wall: st.wallMs, api: st.results.reduce((a, r) => a + (r.duration_api_ms || 0), 0),
     turns: st.results.reduce((a, r) => a + (r.num_turns || 0), 0),
-    cost: last.total_cost_usd ?? null,
+    cost: last.total_cost_usd == null ? null : last.total_cost_usd + ((st.route && st.route.cost) || 0),
+    route: st.route,
     tokens: tok.read + tok.write + tok.fresh + tok.out, tok, byModel,
     helpers, escalations, week,
     check: st.check, size: st.size, error: st.error,
@@ -246,7 +262,7 @@ function summarise(st) {
 
 function table(rows) {
   const cols = [
-    ['', (r) => r.name],
+    ['', (r) => r.name + (r.route && !r.route.error ? ` (${r.route.model} ${r.route.effort || ''})`.replace(' )', ')') : '')],
     ['time', (r) => fmtDur(r.wall)],
     ['cost', (r) => money(r.cost)],
     ['tokens', (r) => fmtK(r.tokens)],
@@ -273,6 +289,7 @@ function markdown(rows, opts, when) {
   md += '```\n' + table(rows) + '\n```\n\n';
   for (const r of rows) {
     md += `## ${r.name}\n\n${VARIANTS[r.name].about}. `;
+    if (r.route) md += r.route.error ? `The router failed (${r.route.error}), so it ran on ${opts.model}. ` : `Routed to ${r.route.level} (${r.route.model}${r.route.effort ? ' ' + r.route.effort : ''}): "${r.route.why}", which cost ${money(r.route.cost)} and took ${fmtDur(r.route.ms)}. `;
     md += `Cost by model: ${r.byModel.join(', ') || '–'}. Tokens: ${fmtK(r.tok.read)} re-read, ${fmtK(r.tok.write)} written to cache, ${fmtK(r.tok.fresh)} fresh input, ${fmtK(r.tok.out)} output.\n\n`;
     if (r.check.ran) md += `Tests: \`${r.check.cmd}\` in \`${r.check.where}\`: ${r.check.text}.\n\n`;
     if (r.helpers.length) md += r.helpers.map((h) => `- ${h.level.toUpperCase()} ${h.desc}: ${fmtK(h.tokens)} tokens, ${fmtDur(h.ms)}, ${h.status}`).join('\n') + '\n\n';
