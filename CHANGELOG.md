@@ -2,6 +2,7 @@
 
 ## 0.4.1
 
+- **Easier to read in Riced.** Your prompts are tinted blocks in your accent colour with a rule above each turn, tool calls sit together in their own darker box, and Claude's replies get an orange bullet.
 - **Shortcuts you can change.** Pick the modifier (Alt, Ctrl Alt, Alt Shift or Ctrl Shift) so desk stops fighting GlazeWM, i3 or Hyprland, and rebind any shortcut by pressing the new keys. Settings → Shortcuts, or "keyboard shortcuts" in the Riced launcher. AltGr typing never triggers a shortcut.
 
 ## 0.4.0

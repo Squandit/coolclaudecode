@@ -139,48 +139,73 @@ button.mod:hover, .ws:hover { color: var(--fg); border-color: var(--line-strong)
 
 /* ------------------------------------------------------------ transcript, terminal style */
 
-.layout-tiling .log { max-width: none; padding: 12px 16px 18px; }
+.layout-tiling .log { max-width: none; padding: 14px 16px 20px; }
 .layout-tiling .say, .layout-tiling .prompt, .layout-tiling .tool-row { font-size: 1em; }
 
+/* your prompt: its own tinted block, and a rule above it so every turn is a section */
 .layout-tiling .prompt {
-  display: flex; gap: 10px;
-  margin: 18px 0 10px; padding: 0;
-  background: none; border: 0; border-radius: 0;
+  position: relative;
+  display: block;
+  margin: 34px 0 14px; padding: 8px 12px 10px 14px;
+  background: color-mix(in srgb, var(--accent) 13%, var(--panel));
+  border: 0; border-left: 3px solid var(--accent);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
   color: var(--fg); font-weight: 700;
 }
-.layout-tiling .prompt::before { content: '❯'; color: var(--accent); font-weight: 800; }
-.layout-tiling .prompt .who { display: none; }
-.layout-tiling .prompt-text { flex: 1; min-width: 0; }
+.layout-tiling .prompt:first-child { margin-top: 4px; }
+.layout-tiling .prompt:not(:first-child)::after {
+  content: ''; position: absolute; left: -3px; right: 0; top: -18px;
+  border-top: 1px dashed var(--line-strong);
+}
+.layout-tiling .prompt .who {
+  display: flex; margin: 0 0 3px; gap: 8px;
+  font-size: .82em; letter-spacing: .06em; color: var(--accent);
+}
+.layout-tiling .prompt .who::before { content: '❯'; font-weight: 800; }
+.layout-tiling .prompt .who time { color: var(--fg-3); letter-spacing: 0; }
+.layout-tiling .prompt-text { color: var(--fg); }
 
-.layout-tiling .say { position: relative; padding-left: 20px; margin: 8px 0; line-height: 1.6; }
-.layout-tiling .say::before { content: '●'; position: absolute; left: 2px; top: 0; color: var(--fg); font-size: .9em; }
+/* Claude's words */
+.layout-tiling .say { position: relative; padding-left: 20px; margin: 12px 0; line-height: 1.65; color: var(--fg); }
+.layout-tiling .say::before { content: '●'; position: absolute; left: 2px; top: 0; color: var(--claude); font-size: .9em; }
 .layout-tiling .say code { background: none; padding: 0; color: var(--accent-2); }
 .layout-tiling .say pre { border-radius: var(--r-sm); }
 .layout-tiling .tool-detail .say::before, .layout-tiling .ask .say::before { display: none; }
 .layout-tiling .tool-detail .say, .layout-tiling .ask .say { padding-left: 0; }
 
-.layout-tiling .tool { margin: 2px 0; }
-.layout-tiling .tool-row { padding: 2px 0 2px 20px; border-radius: 0; position: relative; gap: 8px; }
+/* tool calls: consecutive ones share one darker box with a rail down the side */
+.layout-tiling .tool {
+  margin: 0; padding: 3px 10px 3px 0;
+  background: var(--panel-2);
+  border-left: 2px solid var(--raised-2);
+  font-size: .92em;
+}
+.layout-tiling .tool:not(.tool + .tool) { margin-top: 10px; padding-top: 7px; border-top-right-radius: var(--r-sm); }
+.layout-tiling .tool:not(:has(+ .tool)) { margin-bottom: 10px; padding-bottom: 7px; border-bottom-right-radius: var(--r-sm); }
+.layout-tiling .tool-row { padding: 2px 0 2px 22px; border-radius: 0; position: relative; gap: 8px; color: var(--fg-2); }
 .layout-tiling .tool-row:hover { background: none; }
 .layout-tiling .tool-row:hover .tool-text { text-decoration: underline; text-decoration-color: var(--fg-3); }
-.layout-tiling .tool-row::before { content: '●'; position: absolute; left: 2px; color: var(--fg-3); font-size: .9em; }
+.layout-tiling .tool-row::before { content: '●'; position: absolute; left: 7px; color: var(--fg-3); font-size: .85em; }
 .layout-tiling .tool.ok .tool-row::before { color: var(--ok); }
 .layout-tiling .tool.failed .tool-row::before { color: var(--bad); }
 .layout-tiling .tool:not(.ok):not(.failed) .tool-row::before { color: var(--info); animation: blink 1s steps(2) infinite; }
 .layout-tiling .tool-ico { display: none; }
 .layout-tiling .tool-state { display: none; }
-.layout-tiling .tool-text b { font-weight: 800; }
+.layout-tiling .tool-text { color: var(--fg-2); }
+.layout-tiling .tool-text b { font-weight: 800; color: var(--accent-2); }
+.layout-tiling .tool-text .mono { color: var(--fg); }
 
-.layout-tiling .diff, .layout-tiling .tool-detail, .layout-tiling .decision { margin-left: 20px; position: relative; }
-.layout-tiling .diff::before, .layout-tiling .tool-detail::before {
+.layout-tiling .tool .diff, .layout-tiling .tool .tool-detail, .layout-tiling .tool .decision { margin: 4px 0 6px 38px; position: relative; }
+.layout-tiling .tool .diff::before, .layout-tiling .tool .tool-detail::before {
   content: '⎿'; position: absolute; left: -16px; top: 4px; color: var(--fg-3);
 }
-.layout-tiling .diff { border-radius: var(--r-sm); }
-.layout-tiling .decision { margin-left: 20px; font-weight: 600; }
+.layout-tiling .diff { border-radius: var(--r-sm); background: var(--panel); }
+.layout-tiling .decision { font-weight: 600; }
 
-.layout-tiling .turn-foot { margin: 8px 0 2px; padding-left: 20px; }
+/* end of a turn */
+.layout-tiling .turn-foot { margin: 10px 0 2px; padding-left: 20px; }
 .layout-tiling .turn-foot::before { content: '✻'; color: var(--claude); margin-left: -20px; width: 20px; }
-.layout-tiling .divider { font-weight: 600; }
+.layout-tiling .divider { font-weight: 600; margin: 26px 0; }
 .layout-tiling .activity { padding-left: 20px; font-weight: 600; }
 .layout-tiling .empty-session h2 { font-size: 1.9em; letter-spacing: -0.02em; }
 
