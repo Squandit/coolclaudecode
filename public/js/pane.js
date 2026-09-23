@@ -168,6 +168,7 @@ class Pane {
     this.renderComposerState();
     this.renderEmpty();
     this.scrollToEnd(true);
+    Changes.refreshSoon(this.id, 50);
     return true;
   }
 
@@ -376,6 +377,7 @@ class Pane {
     this.reduce(ev);
     this.renderEvent(ev);
     if (live) {
+      if (ev.type === 'result' || ev.type === 'user') Changes.refreshSoon(this.id);
       if (this === focusedPane()) renderTraySoon();
       this.renderEmpty();
       if (ev.type === 'assistant' || ev.type === 'result') { this.renderHead(); if (typeof onPaneStats === 'function') onPaneStats(this); }
@@ -528,12 +530,13 @@ class Pane {
     const el = document.createElement('div');
     el.className = 'diff';
     el.innerHTML = `<div class="diff-head"><span class="mono">${esc(rel(filePath, s.cwd))}</span><span class="n-add">+${n.add}</span><span class="n-del">−${n.del}</span>${final ? '' : '<span class="dim">pending</span>'}
-      ${long ? '<button data-act="grow">expand</button>' : ''}<button data-act="copy">copy</button></div>
+      ${long ? '<button data-act="grow">expand</button>' : ''}<button data-act="open" title="Open in a terminal">open</button><button data-act="copy">copy</button></div>
       <div class="diff-body ${long ? 'clip' : ''}">${rows}</div>`;
     el.onclick = (e) => {
       const b = e.target.closest('button');
       if (!b) return;
       if (b.dataset.act === 'copy') copy(adds.join('\n'), 'Copied the new lines');
+      if (b.dataset.act === 'open') Terms.openFile(this.id, filePath);
       if (b.dataset.act === 'grow') { const body = $('.diff-body', el); body.classList.toggle('clip'); b.textContent = body.classList.contains('clip') ? 'expand' : 'collapse'; }
     };
     // Keep the diff right under the tool row, above any "you allowed this" note.
@@ -833,7 +836,7 @@ function trayCards(p) {
     ? `<ul class="files">${files.map(([fp, f]) => {
         const r = rel(fp, s.cwd);
         const dir = r.includes('/') ? r.slice(0, r.lastIndexOf('/') + 1) : '';
-        return `<li><span class="fn" title="${esc(r)}"><small>${esc(dir)}</small>${esc(baseName(r))}</span><span class="n-add">+${f.add}</span><span class="n-del">−${f.del}</span></li>`;
+        return `<li><button class="fn" data-diff="${esc(r)}" data-sid="${p.id}" title="${esc(r)}"><small>${esc(dir)}</small>${esc(baseName(r))}</button><span class="n-add">+${f.add}</span><span class="n-del">−${f.del}</span><button class="row-act" data-openfile="${esc(fp)}" data-sid="${p.id}" title="Open in a terminal">${ICON.term}</button></li>`;
       }).join('')}</ul>`
     : `<div class="card-empty">No files changed yet.</div>`;
 
@@ -847,6 +850,7 @@ function trayCards(p) {
       <div class="card-head"><h3>To do</h3><span class="count">${todos.length ? `${done} of ${todos.length}` : ''}</span></div>
       ${todoHtml}
     </section>
+    ${Changes.card(p)}
     <section class="card">
       <div class="card-head"><h3>Files touched</h3><span class="count">${files.length ? `${files.length} · <span class="n-add">+${fa}</span> <span class="n-del">−${fd}</span>` : ''}</span></div>
       ${filesHtml}

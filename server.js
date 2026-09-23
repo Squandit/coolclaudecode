@@ -10,6 +10,8 @@ const os = require('os');
 const crypto = require('crypto');
 const readline = require('readline');
 const { spawn, execFile } = require('child_process');
+const { createTerminals } = require('./lib/terminals');
+const gitInfo = require('./lib/git');
 
 const DEMO = process.argv.includes('--demo');
 const PORT = Number(process.env.PORT || argValue('--port') || 4317);
@@ -51,6 +53,8 @@ const DEFAULT_SETTINGS = {
   theme: 'mocha',
   notify: true,
   rice: '',
+  editor: '',
+  shell: '',
 };
 let settings = { ...DEFAULT_SETTINGS, ...readJSON('settings.json', {}) };
 let sessions = readJSON('sessions.json', []);
@@ -118,6 +122,8 @@ function broadcast(msg) {
   const line = `data: ${JSON.stringify(msg)}\n\n`;
   for (const res of clients) res.write(line);
 }
+
+const terminals = createTerminals({ broadcast: (m) => broadcast(m), getSettings: () => settings });
 
 function publicSession(s) {
   const r = runners.get(s.id);
@@ -580,8 +586,24 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+// xterm.js comes from node_modules; only these files are served.
+const VENDOR = {
+  '/vendor/xterm.js': ['@xterm/xterm', 'lib/xterm.js'],
+  '/vendor/xterm.css': ['@xterm/xterm', 'css/xterm.css'],
+  '/vendor/addon-fit.js': ['@xterm/addon-fit', 'lib/addon-fit.js'],
+};
+
 function serveStatic(pathname, res) {
   if (pathname === '/') pathname = '/index.html';
+  if (VENDOR[pathname]) {
+    let file;
+    try { file = path.join(path.dirname(require.resolve(VENDOR[pathname][0] + '/package.json')), VENDOR[pathname][1]); } catch { res.writeHead(404); return res.end(); }
+    return fs.readFile(file, (err, data) => {
+      if (err) { res.writeHead(404); return res.end(); }
+      res.writeHead(200, { 'Content-Type': MIME[path.extname(file)], 'Cache-Control': 'max-age=86400' });
+      res.end(data);
+    });
+  }
   const file = path.normalize(path.join(PUBLIC, pathname));
   if (!file.startsWith(PUBLIC)) { res.writeHead(404); return res.end(); }
   fs.readFile(file, (err, data) => {
@@ -631,6 +653,30 @@ async function route(req, res, url) {
     return json(res, 200, settings);
   }
 
+  if (m === 'GET' && parts[0] === 'changelog') {
+    let text = '';
+    try { text = fs.readFileSync(path.join(__dirname, 'CHANGELOG.md'), 'utf8'); } catch {}
+    return json(res, 200, { text, version: require('./package.json').version });
+  }
+
+  if (parts[0] === 'terms') {
+    const id = parts[1];
+    if (m === 'GET' && !id) return json(res, 200, { available: terminals.available, error: terminals.error, editor: terminals.defaultEditor(), shell: terminals.defaultShell(), terms: terminals.list() });
+    if (m === 'POST' && !id) {
+      const body = await readBody(req);
+      let cwd = body.cwd ? expandPath(body.cwd) : null;
+      const s = body.sessionId && sessions.find((x) => x.id === body.sessionId);
+      if (s) cwd = s.cwd;
+      if (!cwd) cwd = expandPath(settings.defaultCwd || HOME_DIR);
+      try { return json(res, 200, terminals.create({ cwd, cols: body.cols, rows: body.rows, open: body.open, sessionId: s ? s.id : null })); }
+      catch (err) { return json(res, 400, { error: err.message }); }
+    }
+    if (m === 'GET' && parts[2] === 'buffer') { const t = terminals.get(id); return t ? json(res, 200, { data: t.buf, end: t.total }) : json(res, 404, { error: 'gone' }); }
+    if (m === 'POST' && parts[2] === 'input') { const b = await readBody(req); return json(res, 200, { ok: terminals.write(id, b.data) }); }
+    if (m === 'POST' && parts[2] === 'resize') { const b = await readBody(req); return json(res, 200, { ok: terminals.resize(id, b.cols, b.rows) }); }
+    if (m === 'DELETE' && id) return json(res, 200, { ok: terminals.kill(id) });
+  }
+
   if (m === 'GET' && parts[0] === 'version') {
     if (DEMO) return json(res, 200, { version: 'demo' });
     const cmd = IS_WIN && /\s/.test(settings.claudePath) ? `"${settings.claudePath}"` : settings.claudePath;
@@ -673,6 +719,11 @@ async function route(req, res, url) {
       return json(res, 200, { session: publicSession(s), events: readEvents(s.id), branch: await gitBranch(s.cwd), where: prettyPath(s.cwd) });
     }
     if (m === 'GET' && action === 'files') return json(res, 200, { files: listFiles(s.cwd) });
+    if (m === 'GET' && action === 'changes') return json(res, 200, await gitInfo.changes(s.cwd));
+    if (m === 'GET' && action === 'diff') {
+      try { return json(res, 200, await gitInfo.fileDiff(s.cwd, url.searchParams.get('path') || '')); }
+      catch (err) { return json(res, 400, { error: err.message }); }
+    }
     if (m === 'POST' && action === 'send') {
       const { text } = await readBody(req);
       if (!text || !text.trim()) return json(res, 400, { error: 'empty' });
@@ -723,6 +774,7 @@ server.listen(PORT, HOST, () => {
 
 function shutdown() {
   for (const r of runners.values()) killTree(r.child);
+  terminals.killAll();
   if (DEMO) try { fs.rmSync(DATA, { recursive: true, force: true }); } catch {}
   process.exit(0);
 }

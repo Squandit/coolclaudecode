@@ -2,22 +2,14 @@
 // The riced layout: a tiling desktop where every open session is a window.
 // Configured through desk.conf, a plain text file you edit in its own window (Alt C).
 
-const PALETTES = {
-  tokyonight: { crust: '#0f0f14', mantle: '#16161e', base: '#1a1b26', s0: '#292e42', s1: '#414868', line: '#232433', fg: '#c0caf5', fg2: '#a9b1d6', fg3: '#565f89', accent: '#7aa2f7', accent2: '#bb9af7', ok: '#9ece6a', warn: '#e0af68', hot: '#ff9e64', bad: '#f7768e', info: '#7dcfff' },
-  catppuccin: { crust: '#11111b', mantle: '#181825', base: '#1e1e2e', s0: '#313244', s1: '#45475a', line: '#2a2b3c', fg: '#cdd6f4', fg2: '#a6adc8', fg3: '#7f849c', accent: '#cba6f7', accent2: '#89b4fa', ok: '#a6e3a1', warn: '#f9e2af', hot: '#fab387', bad: '#f38ba8', info: '#89dceb' },
-  gruvbox: { crust: '#141617', mantle: '#1d2021', base: '#282828', s0: '#3c3836', s1: '#504945', line: '#32302f', fg: '#ebdbb2', fg2: '#d5c4a1', fg3: '#928374', accent: '#fabd2f', accent2: '#83a598', ok: '#b8bb26', warn: '#fabd2f', hot: '#fe8019', bad: '#fb4934', info: '#83a598' },
-  nord: { crust: '#1f232b', mantle: '#242933', base: '#2e3440', s0: '#3b4252', s1: '#4c566a', line: '#373e4c', fg: '#eceff4', fg2: '#d8dee9', fg3: '#7b88a1', accent: '#88c0d0', accent2: '#b48ead', ok: '#a3be8c', warn: '#ebcb8b', hot: '#d08770', bad: '#bf616a', info: '#81a1c1' },
-  rosepine: { crust: '#111019', mantle: '#16141f', base: '#191724', s0: '#26233a', s1: '#403d52', line: '#21202e', fg: '#e0def4', fg2: '#908caa', fg3: '#6e6a86', accent: '#c4a7e7', accent2: '#ebbcba', ok: '#9ccfd8', warn: '#f6c177', hot: '#ebbcba', bad: '#eb6f92', info: '#3e8fb0' },
-  everforest: { crust: '#1e2326', mantle: '#232a2e', base: '#2d353b', s0: '#343f44', s1: '#475258', line: '#2e383c', fg: '#d3c6aa', fg2: '#9da9a0', fg3: '#7a8478', accent: '#a7c080', accent2: '#7fbbb3', ok: '#a7c080', warn: '#dbbc7f', hot: '#e69875', bad: '#e67e80', info: '#7fbbb3' },
-};
 
 const DEFAULT_RICE = `# desk.conf
 # Changes apply as you type and save on their own.
 # Comments start with "# " (a hash, then a space). Colours are hex,
 # or a palette name: accent accent2 ok warn hot bad info fg fg2 fg3 s0 s1
 
-theme = riced             # riced, or mocha to go back to the classic layout
-colors = tokyonight       # tokyonight catppuccin gruvbox nord rosepine everforest
+theme = riced             # riced, or a classic theme: mocha latte tokyonight gruvbox nord rosepine everforest
+colors = tokyonight       # tokyonight catppuccin latte gruvbox nord rosepine everforest
 accent = auto             # auto, or any colour
 
 # windows
@@ -42,7 +34,7 @@ wallpaper = mesh          # mesh, dots, grid, plain, or an https:// image
 `;
 
 const RICE_KEYS = {
-  theme: { def: 'riced', oneOf: ['riced', 'mocha'] },
+  theme: { def: 'riced', oneOf: THEMES.map((t) => t.id) },
   colors: { def: 'tokyonight', oneOf: Object.keys(PALETTES) },
   accent: { def: 'auto', color: true, allow: ['auto'] },
   layout: { def: 'dwindle', oneOf: ['dwindle', 'master', 'monocle'] },
@@ -118,23 +110,13 @@ function riceCss(cfg) {
   const accent = cfg.accent !== 'auto' && resolveColor(cfg.accent, pal, pal.accent) ? resolveColor(cfg.accent, pal, pal.accent) : pal.accent;
   const r = cfg.rounding;
   const font = `'${cfg.font}', 'JetBrains Mono', ui-monospace, 'Cascadia Code', Menlo, Consolas, monospace`;
-  const mix = (c, pct) => `color-mix(in srgb, ${c} ${pct}%, transparent)`;
   return `:root {
-    --bg: ${pal.crust}; --panel: ${pal.base}; --panel-2: ${pal.mantle};
-    --raised: ${pal.s0}; --raised-2: ${pal.s1}; --line: ${pal.line}; --line-strong: ${pal.s1};
-    --fg: ${pal.fg}; --fg-2: ${pal.fg2}; --fg-3: ${pal.fg3};
-    --accent: ${accent}; --accent-2: ${pal.accent2}; --accent-fg: ${pal.crust};
-    --claude: ${pal.hot}; --you: ${pal.accent2};
-    --ok: ${pal.ok}; --warn: ${pal.warn}; --hot: ${pal.hot}; --bad: ${pal.bad}; --info: ${pal.info};
-    --add: ${pal.ok}; --del: ${pal.bad}; --add-bg: ${mix(pal.ok, 10)}; --del-bg: ${mix(pal.bad, 10)};
-    --code-bg: ${pal.mantle}; --ring: ${mix(accent, 55)}; --shadow: none;
-    --font: ${font}; --font-mono: ${font};
-    --r-lg: ${r}px; --r-md: ${Math.max(0, r - 1)}px; --r-sm: ${Math.max(0, r - 2)}px; --r-xs: ${Math.min(r, 3)}px; --r-pill: ${r}px;
+    ${paletteVars(pal, { accent, radius: [r, Math.max(0, r - 1), Math.max(0, r - 2), Math.min(r, 3), r], font })}
+    --shadow: none;
     --gi: ${cfg.gaps_in}px; --go: ${cfg.gaps_out}px; --bw: ${cfg.border_size}px;
     --ab: ${parseBorder(cfg.active_border, pal, accent) || accent};
     --ib: ${parseBorder(cfg.inactive_border, pal, accent) || pal.s0};
     --op: ${cfg.opacity_inactive}; --fs: ${cfg.font_size}px;
-    color-scheme: dark;
   }
   ${cfg.wallpaper.startsWith('https://') ? `.desktop { background-image: url("${cfg.wallpaper}"); }` : ''}`;
 }
@@ -195,6 +177,7 @@ const Tiling = {
     const d = $('#desktop');
     d.hidden = false;
     d.innerHTML = `<div class="bar" id="bar"></div><div class="tiles" id="tiles"></div><div class="floats" id="floats"></div><div class="notes" id="notes"></div>`;
+    this.termWins = new Map();
     this.ro = new ResizeObserver(() => this.layout());
     this.ro.observe($('#tiles'));
     this.clockTimer = setInterval(() => this.renderBar(), 15000);
@@ -205,6 +188,7 @@ const Tiling = {
     this.ro?.disconnect();
     clearInterval(this.clockTimer);
     for (const p of [...panes.values()]) p.destroy();
+    for (const v of Terms.views.values()) v.el.remove();
     const d = $('#desktop');
     d.hidden = true;
     d.innerHTML = '';
@@ -214,32 +198,54 @@ const Tiling = {
   applyConfig(text) {
     const { cfg, errors } = parseRice(text);
     this.cfg = cfg;
-    let el = $('#rice-style');
-    if (!el) { el = document.createElement('style'); el.id = 'rice-style'; document.head.appendChild(el); }
-    el.textContent = riceCss(cfg);
+    setThemeVars(riceCss(cfg));
     const d = $('#desktop');
     d.dataset.bar = cfg.bar_position;
     d.dataset.barStyle = cfg.bar_style;
     d.dataset.wall = cfg.wallpaper.startsWith('https://') ? 'image' : cfg.wallpaper;
     d.dataset.anim = cfg.animations;
     if (!d.hidden) { this.layout(); this.renderBar(); }
+    Terms.retheme();
     return errors;
   },
-  clearStyle() { $('#rice-style')?.remove(); },
 
-  // ---- which windows are where
+  // ---- which windows are where. A window is a session or a terminal.
 
   openSessions() {
     return [...st.sessions.values()].filter((s) => s.open !== false).sort((a, b) => a.createdAt - b.createdAt);
   },
+  items() {
+    const out = this.openSessions().map((s) => ({ kind: 'session', id: s.id, cwd: s.cwd, createdAt: s.createdAt, s }));
+    for (const v of Terms.list()) out.push({ kind: 'term', id: v.id, cwd: v.meta.cwd, createdAt: v.meta.createdAt, v });
+    return out.sort((a, b) => a.createdAt - b.createdAt);
+  },
   workspaces() {
     const seen = new Map();
-    for (const s of this.openSessions()) if (!seen.has(s.cwd)) seen.set(s.cwd, { cwd: s.cwd, name: baseName(s.cwd), sessions: [] });
-    for (const s of this.openSessions()) seen.get(s.cwd).sessions.push(s);
+    for (const it of this.items()) {
+      if (!seen.has(it.cwd)) seen.set(it.cwd, { cwd: it.cwd, name: baseName(it.cwd), sessions: [], count: 0 });
+      const w = seen.get(it.cwd);
+      w.count++;
+      if (it.kind === 'session') w.sessions.push(it.s);
+    }
     return [...seen.values()];
   },
-  windows() {
-    return this.openSessions().filter((s) => s.cwd === this.ws);
+  windows() { return this.items().filter((it) => it.cwd === this.ws); },
+
+  winEl(it) {
+    if (it.kind === 'session') return panes.get(it.id)?.el;
+    let el = this.termWins.get(it.id);
+    if (!el) {
+      el = document.createElement('section');
+      el.className = 'pane term-win';
+      el.innerHTML = `<div class="pane-in"><header class="head"><span class="win-dot term-dot">${ICON.term}</span><div class="head-left"><div class="head-title"><span class="title-text">${esc(it.v.title)}</span></div><div class="head-meta"><span class="mono where">${esc(it.cwd)}</span></div></div><div class="head-right"><button class="icon-btn win-close" data-killterm title="Close (Alt Q)">${ICON.x}</button></div></header><div class="term-slot"></div></div>`;
+      el.addEventListener('mousedown', () => { if (st.focusId !== it.id) this.setFocus(it.id, { input: false }); });
+      $('[data-killterm]', el).onclick = () => it.v.kill();
+      this.termWins.set(it.id, el);
+    }
+    const slot = $('.term-slot', el);
+    if (it.v.el.parentElement !== slot) slot.appendChild(it.v.el);
+    it.v.el.hidden = false;
+    return el;
   },
 
   go() {
@@ -259,31 +265,39 @@ const Tiling = {
     this.sync();
   },
 
-  // Make the DOM match: one pane per window in the current workspace.
+  // Make the DOM match the windows in the current workspace.
   sync() {
     const wss = this.workspaces();
     if (!wss.some((w) => w.cwd === this.ws)) this.ws = wss[0]?.cwd || null;
     const wins = this.windows();
-    if (!wins.some((s) => s.id === st.focusId)) st.focusId = wins[0]?.id || null;
+    if (!wins.some((w) => w.id === st.focusId)) st.focusId = wins[0]?.id || null;
     const tiles = $('#tiles');
     if (!tiles) return;
-    const wanted = new Set(wins.map((s) => s.id));
+    const wanted = new Set(wins.map((w) => w.id));
     for (const p of [...panes.values()]) {
       const s = st.sessions.get(p.id);
       if (!s || s.open === false) p.destroy();
       else if (!wanted.has(p.id)) p.el.remove();
     }
+    for (const [id, el] of this.termWins) {
+      if (!Terms.views.has(id)) { el.remove(); this.termWins.delete(id); }
+      else if (!wanted.has(id)) el.remove();
+    }
     $('.splash', tiles)?.remove();
-    for (const s of wins) {
-      let p = panes.get(s.id);
-      if (!p) { p = new Pane(s.id); panes.set(s.id, p); p.load().then(() => { if (p.id === st.focusId) this.renderInfo(); this.renderBar(); }); }
-      if (p.el.parentElement !== tiles) tiles.appendChild(p.el);
+    for (const w of wins) {
+      if (w.kind === 'session' && !panes.get(w.id)) {
+        const p = new Pane(w.id);
+        panes.set(w.id, p);
+        p.load().then(() => { if (p.id === st.focusId) this.renderInfo(); this.renderBar(); });
+      }
+      const el = this.winEl(w);
+      if (el && el.parentElement !== tiles) tiles.appendChild(el);
     }
     if (!wins.length) tiles.insertAdjacentHTML('beforeend', this.splash());
     this.layout();
     this.renderBar();
     this.renderInfo();
-    if (st.focusId) history.replaceState(null, '', '#/s/' + st.focusId);
+    if (st.focusId && st.sessions.has(st.focusId)) history.replaceState(null, '', '#/s/' + st.focusId);
   },
 
   layout() {
@@ -297,25 +311,37 @@ const Tiling = {
     const rects = tileRects(wins.length, W, H, cfg);
     const mono = cfg.layout === 'monocle' || this.fullscreen;
     this.rects = new Map();
-    wins.forEach((s, i) => {
-      const p = panes.get(s.id);
-      if (!p) return;
-      const focused = s.id === st.focusId;
+    wins.forEach((w, i) => {
+      const el = w.kind === 'session' ? panes.get(w.id)?.el : this.termWins.get(w.id);
+      if (!el) return;
+      const focused = w.id === st.focusId;
       let r = rects[i];
       if (this.fullscreen && focused) r = { x: 0, y: 0, w: W, h: H };
-      this.rects.set(s.id, r);
-      Object.assign(p.el.style, { left: pad + r.x + 'px', top: pad + r.y + 'px', width: r.w + 'px', height: r.h + 'px' });
-      p.el.classList.toggle('focused', focused);
-      p.el.classList.toggle('hidden-win', mono && !focused);
+      this.rects.set(w.id, r);
+      Object.assign(el.style, { left: pad + r.x + 'px', top: pad + r.y + 'px', width: r.w + 'px', height: r.h + 'px' });
+      el.classList.toggle('focused', focused);
+      el.classList.toggle('hidden-win', mono && !focused);
     });
+    // Terminals refit once the slide animation settles.
+    clearTimeout(this.refitT);
+    this.refitT = setTimeout(() => { for (const w of wins) if (w.kind === 'term') w.v.refit(); }, 360);
+  },
+
+  focusWin(id) {
+    const v = Terms.views.get(id);
+    if (v) v.focus(); else panes.get(id)?.focusInput();
   },
 
   setFocus(id, { input = true } = {}) {
     if (!id) return;
-    const s = st.sessions.get(id);
-    if (s && s.cwd !== this.ws) { this.ws = s.cwd; st.focusId = id; this.sync(); }
-    else { st.focusId = id; this.layout(); this.renderBar(); this.renderInfo(); history.replaceState(null, '', '#/s/' + id); }
-    if (input) panes.get(id)?.focusInput();
+    const it = this.items().find((x) => x.id === id);
+    if (it && it.cwd !== this.ws) { this.ws = it.cwd; st.focusId = id; this.sync(); }
+    else {
+      st.focusId = id;
+      this.layout(); this.renderBar(); this.renderInfo();
+      if (st.sessions.has(id)) history.replaceState(null, '', '#/s/' + id);
+    }
+    if (input) this.focusWin(id);
   },
 
   onPaneFocus(p) { if (st.focusId !== p.id) this.setFocus(p.id, { input: false }); },
@@ -338,6 +364,23 @@ const Tiling = {
     if (best) this.setFocus(best);
   },
 
+  // ---- terminals
+
+  async newTerm() {
+    const focusTerm = st.focusId && Terms.views.get(st.focusId);
+    const focus = (st.focusId && st.sessions.get(st.focusId)) || (focusTerm ? { title: focusTerm.title, status: 'term' } : null);
+    const v = await Terms.create(focus ? { sessionId: focus.id } : { cwd: this.ws || undefined });
+    if (v) this.showTerm(v);
+  },
+  showTerm(v) {
+    this.ws = v.meta.cwd;
+    st.focusId = v.id;
+    this.fullscreen = false;
+    this.sync();
+    v.focus();
+  },
+  onTermsChanged() { this.sync(); },
+
   // ---- events from the app
 
   onSession(s) {
@@ -352,13 +395,19 @@ const Tiling = {
 
   putAway: async (id) => {
     const wins = Tiling.windows();
-    const idx = wins.findIndex((s) => s.id === id);
+    const idx = wins.findIndex((w) => w.id === id);
     const next = wins[idx + 1] || wins[idx - 1];
+    if (Terms.views.has(id)) {
+      st.focusId = next ? next.id : null;
+      await Terms.views.get(id).kill();
+      if (st.focusId) Tiling.focusWin(st.focusId);
+      return;
+    }
     const s = st.sessions.get(id);
     if (s) s.open = false;
     if (st.focusId === id) st.focusId = next ? next.id : null;
     Tiling.sync();
-    if (st.focusId) panes.get(st.focusId)?.focusInput();
+    if (st.focusId) Tiling.focusWin(st.focusId);
     await api('PATCH', '/sessions/' + id, { open: false }).catch((err) => toast(err.message));
   },
 
@@ -368,6 +417,7 @@ const Tiling = {
       if ($('.cfgwin')) { this.closeFloat('.cfgwin'); return true; }
       return false;
     }
+    if (e.ctrlKey && !e.altKey && e.code === 'Backquote') { e.preventDefault(); this.newTerm(); return true; }
     if (!e.altKey || e.ctrlKey || e.metaKey) return false;
     const code = e.code;
     const run = (fn) => { e.preventDefault(); fn(); return true; };
@@ -390,7 +440,7 @@ const Tiling = {
     st.focusId = null;
     this.fullscreen = false;
     this.sync();
-    if (st.focusId) panes.get(st.focusId)?.focusInput();
+    if (st.focusId) this.focusWin(st.focusId);
   },
 
   // ---- bar
@@ -399,7 +449,8 @@ const Tiling = {
     const bar = $('#bar');
     if (!bar) return;
     const wss = this.workspaces();
-    const focus = st.focusId && st.sessions.get(st.focusId);
+    const focusTerm = st.focusId && Terms.views.get(st.focusId);
+    const focus = (st.focusId && st.sessions.get(st.focusId)) || (focusTerm ? { title: focusTerm.title, status: 'term' } : null);
     const fp = focusedPane();
     const u = st.usage;
     const mod = (cls, inner, attrs = '') => `<span class="mod ${cls}" ${attrs}>${inner}</span>`;
@@ -411,7 +462,7 @@ const Tiling = {
     const wsHtml = wss.map((w, i) => {
       const urgent = w.sessions.some((s) => s.status === 'needs_you');
       const busy = w.sessions.some((s) => s.status === 'working');
-      return `<button class="ws ${w.cwd === this.ws ? 'active' : ''} ${urgent ? 'urgent' : ''} ${busy ? 'busy' : ''}" data-ws="${i}" title="${esc(w.cwd)}"><b>${i + 1}</b><span>${esc(w.name)}</span>${w.sessions.length > 1 ? `<small>${w.sessions.length}</small>` : ''}</button>`;
+      return `<button class="ws ${w.cwd === this.ws ? 'active' : ''} ${urgent ? 'urgent' : ''} ${busy ? 'busy' : ''}" data-ws="${i}" title="${esc(w.cwd)}"><b>${i + 1}</b><span>${esc(w.name)}</span>${w.count > 1 ? `<small>${w.count}</small>` : ''}</button>`;
     }).join('');
     const pct = fp ? fp.ctxPct() : null;
     const now = new Date();
@@ -430,16 +481,20 @@ const Tiling = {
         ${pct != null ? mod('ctx-mod', `<b>ctx</b> ${pct}%`, `data-info style="--c:${levelColor(pct)}" title="Context used (Alt I for details)"`) : ''}
         ${fp && fp.m.cost ? mod('cost-mod', fmtCost(fp.m.cost), 'title="This session, API equivalent"') : ''}
         <button class="mod icon-mod" data-launch title="New session (Alt Enter)">${ICON.plus}</button>
+        <button class="mod icon-mod" data-newterm title="Terminal (Ctrl \`)">${ICON.term}</button>
+        <button class="mod icon-mod" data-themes title="Themes (Alt T)">${ICON.palette}</button>
         <button class="mod icon-mod" data-config title="desk.conf (Alt C)">${ICON.gear}</button>
         ${mod('clock', `${now.toLocaleDateString([], { weekday: 'short' }).toLowerCase()} <b>${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}</b>`)}
       </div>`;
     bar.onclick = (e) => {
-      const t = e.target.closest('[data-ws],[data-launch],[data-config],[data-info]');
+      const t = e.target.closest('[data-ws],[data-launch],[data-config],[data-info],[data-newterm],[data-themes]');
       if (!t) return;
       if (t.dataset.ws) this.switchWs(+t.dataset.ws);
       else if (t.dataset.launch !== undefined) this.openLauncher();
       else if (t.dataset.config !== undefined) ($('.cfgwin') ? this.closeFloat('.cfgwin') : this.openConfig());
       else if (t.dataset.info !== undefined) this.toggleInfo();
+      else if (t.dataset.newterm !== undefined) this.newTerm();
+      else if (t.dataset.themes !== undefined) openThemePicker();
     };
   },
 
@@ -523,9 +578,15 @@ const Tiling = {
     const done = (fn) => async () => { this.closeFloat('.launcher'); try { await fn(); } catch (err) { toast(err.message); } };
     const looksLikePath = /^(~|\/|\.{1,2}[\\/]|[a-z]:[\\/])/i.test(q);
     if (looksLikePath) items.push({ glyph: '+', label: `new session in ${q}`, sub: 'folder', act: done(() => this.newIn(q)) });
+    const here = this.ws || null;
+    items.push({ glyph: '>_', label: `terminal in ${here ? baseName(here) : 'home'}`, sub: 'Ctrl `', act: done(() => this.newTerm()) });
+    for (const v of Terms.list()) items.push({ glyph: '>_', label: v.title, sub: `switch · terminal · ${baseName(v.meta.cwd)}`, act: done(() => this.setFocus(v.id)) });
     for (const s of this.openSessions()) items.push({ glyph: '◆', label: s.title, sub: `switch · ${baseName(s.cwd)} · ${STATUS_TEXT[s.status] || s.status}`, cls: s.status, act: done(() => this.setFocus(s.id)) });
     for (const p of st.projects) items.push({ glyph: '+', label: `new session in ${p.name}`, sub: p.where, act: done(() => this.newIn(p.where)) });
     for (const h of st.history) items.push({ glyph: '↺', label: h.title, sub: `resume · ${h.where}`, act: done(() => importSession(h.sessionId)) });
+    items.push({ glyph: '◐', label: 'themes', sub: 'Alt T', act: done(() => openThemePicker()) });
+    items.push({ glyph: '✎', label: 'desk.conf', sub: 'Alt C', act: done(() => this.openConfig()) });
+    items.push({ glyph: '★', label: "what's new", sub: 'changelog', act: done(() => openChangelog()) });
     const words = q.toLowerCase().split(/\s+/).filter(Boolean);
     let out = looksLikePath ? items : items.filter((it) => words.every((w) => (it.label + ' ' + it.sub).toLowerCase().includes(w)));
     if (q.trim() && !looksLikePath) {
@@ -578,8 +639,8 @@ const Tiling = {
       const value = ta.value;
       const { cfg } = parseRice(value);
       const patch = { rice: value };
-      if (cfg.theme === 'mocha') patch.theme = 'mocha';
-      await saveSettings(patch, { apply: cfg.theme === 'mocha' });
+      if (cfg.theme !== 'riced') patch.theme = cfg.theme;
+      await saveSettings(patch, { apply: cfg.theme !== 'riced' });
       const d = $('.cfgwin .fwin-status .dim');
       if (d) d.textContent = 'saved';
     };

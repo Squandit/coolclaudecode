@@ -14,6 +14,8 @@ async function boot() {
 
   window.addEventListener('hashchange', () => L && L.go());
   document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && closeModal()) { e.preventDefault(); return; }
+    if (e.altKey && !e.ctrlKey && !e.metaKey && e.code === 'KeyT') { e.preventDefault(); if (!$('.theme-modal')) openThemePicker(); return; }
     if (L && L.keys(e)) return;
     if (e.key === 'Escape') closeMenu();
   });
@@ -21,6 +23,7 @@ async function boot() {
   window.addEventListener('resize', closeMenu);
   setInterval(() => { L && L.onTick(); refreshAgos(); }, 30000);
 
+  await Terms.init();
   applyTheme();
   connect();
   loadProjects();
@@ -28,16 +31,21 @@ async function boot() {
   updateTitle();
 }
 
-function applyTheme() {
-  const theme = byId(THEMES, st.settings.theme) || THEMES[0];
-  const link = $('#theme-css');
-  const href = `themes/${theme.id}.css`;
-  if (!link.getAttribute('href').endsWith(href)) link.setAttribute('href', href);
+function setThemeVars(css) {
+  let el = $('#theme-vars');
+  if (!el) { el = document.createElement('style'); el.id = 'theme-vars'; document.head.appendChild(el); }
+  el.textContent = css;
+}
+
+// Apply the saved theme, or preview another one without saving it.
+function applyTheme(previewId) {
+  const theme = byId(THEMES, previewId || st.settings.theme) || THEMES[0];
   const next = theme.layout === 'tiling' ? Tiling : Classic;
   document.body.classList.toggle('layout-tiling', next === Tiling);
   document.body.classList.toggle('layout-classic', next === Classic);
   if (next === Tiling) Tiling.applyConfig(st.settings.rice || DEFAULT_RICE);
-  else Tiling.clearStyle();
+  else setThemeVars(`:root {${paletteVars(PALETTES[theme.palette] || PALETTES.catppuccin)}}`);
+  Terms.retheme();
   if (L === next) return;
   if (L) L.leave();
   L = next;
@@ -104,6 +112,15 @@ function onServer(msg) {
     case 'activity':
       panes.get(msg.id)?.onActivity(msg.text);
       refreshAgos();
+      break;
+    case 'term':
+      Terms.onData(msg.id, msg.data, msg.end);
+      break;
+    case 'term-exit':
+      Terms.onExit(msg.id);
+      break;
+    case 'terms':
+      Terms.onList(msg.terms);
       break;
     case 'usage':
       st.usage = msg.usage;

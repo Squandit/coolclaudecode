@@ -10,12 +10,19 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap">
   <link rel="stylesheet" href="app.css">
-  <link rel="stylesheet" href="themes/mocha.css" id="theme-css">
+  <link rel="stylesheet" href="themes/riced.css">
 </head>
 <body>
   <div class="app" id="app" hidden>
     <aside class="side" id="side"></aside>
-    <main class="main" id="main"></main>
+    <main class="main" id="main">
+      <div class="main-body" id="main-body"></div>
+      <div class="dock" id="dock" hidden>
+        <div class="dock-grip" title="Drag to resize"></div>
+        <div class="dock-bar"><div class="dock-tabs"></div><button class="icon-btn" data-newterm title="New terminal">+</button><button class="icon-btn" data-hidedock title="Hide (Ctrl \`)">⌄</button></div>
+        <div class="dock-body"></div>
+      </div>
+    </main>
     <aside class="tray" id="tray"></aside>
   </div>
   <div class="desktop" id="desktop" hidden></div>
@@ -23,6 +30,7 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="js/core.js"></script>
   <script src="js/pane.js"></script>
+  <script src="js/term.js"></script>
   <script src="js/classic.js"></script>
   <script src="js/tiling.js"></script>
   <script src="js/app.js"></script>

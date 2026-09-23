@@ -12,12 +12,15 @@ const Classic = {
     $('#scrim').onclick = () => app.classList.remove('side-open', 'tray-open');
     this.renderSide();
     this.go();
+    this.renderDock();
   },
 
   leave() {
     $('#app').hidden = true;
     for (const p of [...panes.values()]) p.destroy();
-    $('#main').innerHTML = '';
+    $('#main-body').innerHTML = '';
+    $('#dock').hidden = true;
+    for (const v of Terms.views.values()) v.el.remove();
   },
 
   go() {
@@ -41,7 +44,7 @@ const Classic = {
     }
     for (const p of [...panes.values()]) if (p.id !== id) p.destroy();
     let p = panes.get(id);
-    const main = $('#main');
+    const main = $('#main-body');
     main.onclick = null;
     if (!p) { p = new Pane(id); panes.set(id, p); }
     st.focusId = id;
@@ -64,6 +67,7 @@ const Classic = {
 
   keys(e) {
     if (e.altKey && !e.ctrlKey && !e.metaKey && e.code === 'KeyN') { e.preventDefault(); this.newSession(); return true; }
+    if (e.ctrlKey && !e.altKey && e.code === 'Backquote') { e.preventDefault(); this.toggleDock(); return true; }
     if (e.key === 'Escape') $('#app').classList.remove('side-open', 'tray-open');
     return false;
   },
@@ -114,6 +118,72 @@ const Classic = {
         <div class="card-empty" style="line-height:1.55">Each session is a real Claude Code session running on this machine, so you can pick any of them up in the terminal with <span class="mono">claude --resume</span>. Permission prompts land here as cards.</div>
       </section>`;
   },
+
+  // ---------------------------------------------------------------- terminal dock
+
+  dockActive: null,
+
+  renderDock() {
+    const dock = $('#dock');
+    const views = Terms.list();
+    if (!views.length) { dock.hidden = true; this.dockActive = null; return; }
+    if (!views.some((v) => v.id === this.dockActive)) this.dockActive = views[views.length - 1].id;
+    if (!dock.dataset.wired) this.wireDock(dock);
+    dock.style.height = store.get('dockH', 300) + 'px';
+    $('.dock-tabs', dock).innerHTML = views.map((v) => `<button class="dock-tab ${v.id === this.dockActive ? 'on' : ''}" data-tab="${v.id}" title="${esc(v.meta.cwd)}">${ICON.term}<span>${esc(v.title)}</span><i data-kill="${v.id}" title="Close">${ICON.x}</i></button>`).join('');
+    const body = $('.dock-body', dock);
+    for (const v of views) {
+      if (v.el.parentElement !== body) body.appendChild(v.el);
+      v.el.hidden = v.id !== this.dockActive;
+    }
+    if (dock.hidden === false) Terms.views.get(this.dockActive)?.refit();
+  },
+
+  wireDock(dock) {
+    dock.dataset.wired = '1';
+    dock.onclick = async (e) => {
+      const kill = e.target.closest('[data-kill]');
+      if (kill) { e.stopPropagation(); await Terms.views.get(kill.dataset.kill)?.kill(); return; }
+      const tab = e.target.closest('[data-tab]');
+      if (tab) { this.dockActive = tab.dataset.tab; this.renderDock(); Terms.views.get(this.dockActive)?.focus(); return; }
+      if (e.target.closest('[data-newterm]')) this.newTerm();
+      if (e.target.closest('[data-hidedock]')) { dock.hidden = true; focusedPane()?.focusInput(); }
+    };
+    const grip = $('.dock-grip', dock);
+    grip.onpointerdown = (e) => {
+      e.preventDefault();
+      grip.setPointerCapture(e.pointerId);
+      const startY = e.clientY, startH = dock.offsetHeight;
+      grip.onpointermove = (ev) => {
+        const h = Math.max(120, Math.min(window.innerHeight - 160, startH + (startY - ev.clientY)));
+        dock.style.height = h + 'px';
+      };
+      grip.onpointerup = () => { grip.onpointermove = null; store.set('dockH', dock.offsetHeight); Terms.views.get(this.dockActive)?.refit(); };
+    };
+  },
+
+  async newTerm() {
+    const p = focusedPane();
+    const v = await Terms.create(p ? { sessionId: p.id } : {});
+    if (v) this.showTerm(v);
+  },
+
+  showTerm(v) {
+    this.dockActive = v.id;
+    $('#dock').hidden = false;
+    this.renderDock();
+    v.focus();
+  },
+
+  toggleDock() {
+    const dock = $('#dock');
+    if (!Terms.list().length) return this.newTerm();
+    if (dock.hidden) { dock.hidden = false; this.renderDock(); Terms.views.get(this.dockActive)?.focus(); }
+    else if (dock.contains(document.activeElement)) { dock.hidden = true; focusedPane()?.focusInput(); }
+    else Terms.views.get(this.dockActive)?.focus();
+  },
+
+  onTermsChanged() { this.renderDock(); },
 
   // ---------------------------------------------------------------- sidebar
 
@@ -182,7 +252,7 @@ const Classic = {
     this.renderUsage();
 
     side.onclick = async (e) => {
-      const t = e.target.closest('[data-open],[data-close],[data-proj],[data-new],[data-newin],[data-import],[data-home],[data-settings]');
+      const t = e.target.closest('[data-open],[data-close],[data-proj],[data-new],[data-newin],[data-import],[data-home],[data-settings],[data-themes],[data-dock]');
       if (!t) return;
       if (t.dataset.close) { e.stopPropagation(); this.putAway(t.dataset.close); }
       else if (t.dataset.open) location.hash = '#/s/' + t.dataset.open;
@@ -196,6 +266,8 @@ const Classic = {
       else if (t.dataset.import) importSession(t.dataset.import);
       else if (t.dataset.home !== undefined) location.hash = '#/';
       else if (t.dataset.settings !== undefined) location.hash = '#/settings';
+      else if (t.dataset.themes !== undefined) openThemePicker();
+      else if (t.dataset.dock !== undefined) this.toggleDock();
     };
     side.onkeydown = (e) => {
       const t = e.target.closest('[data-open]');
@@ -207,7 +279,7 @@ const Classic = {
     const el = $('#usage');
     if (!el) return;
     const u = st.usage;
-    const settingsBtn = `<button class="icon-btn ${this.route.name === 'settings' ? 'on' : ''}" title="Settings" data-settings>${ICON.gear}</button>`;
+    const settingsBtn = `<span class="usage-btns"><button class="icon-btn" title="Terminal (Ctrl \`)" data-dock>${ICON.term}</button><button class="icon-btn" title="Themes (Alt T)" data-themes>${ICON.palette}</button><button class="icon-btn ${this.route.name === 'settings' ? 'on' : ''}" title="Settings" data-settings>${ICON.gear}</button></span>`;
     const meter = (label, w) => {
       if (!w || w.utilization == null) return '';
       const pct = Math.round(w.utilization * 100);
@@ -232,7 +304,7 @@ const Classic = {
   // ---------------------------------------------------------------- home
 
   renderHome() {
-    const main = $('#main');
+    const main = $('#main-body');
     main.onclick = null;
     const recentFolder = sessionsSorted()[0] ? prettyish(sessionsSorted()[0].cwd) : '';
     main.innerHTML = `
@@ -317,7 +389,7 @@ const Classic = {
   renderSettings() {
     const s = st.settings;
     const seg = (key, list) => `<div class="seg" data-key="${key}">${list.map((x) => `<button data-val="${x.id}" class="${s[key] === x.id ? 'sel' : ''}">${esc(x.name)}</button>`).join('')}</div>`;
-    const main = $('#main');
+    const main = $('#main-body');
     main.innerHTML = `
       <div class="head mobile-only" style="border:0;padding-bottom:0"><button class="icon-btn" data-side>${ICON.menu}</button></div>
       <div class="page"><div class="page-inner">
@@ -325,10 +397,9 @@ const Classic = {
         <h1 class="hero" style="font-size:38px">Make it yours</h1>
         <p class="lede">Saved to <span class="mono">~/.desk</span> on this machine. Nothing leaves it.</p>
 
-        <div class="set-group"><h2>Look</h2><p>Each theme is a CSS file of tokens. Riced swaps the whole layout for a tiling desktop.</p>
+        <div class="set-group"><h2>Look</h2><p>Alt T switches themes from anywhere. Riced swaps the whole layout for a tiling desktop.</p>
           <div class="themes">
-            ${THEMES.map((t) => `<button class="theme-card ${s.theme === t.id ? 'sel' : ''}" data-theme="${t.id}"><span class="sw">${t.swatch.map((c) => `<i style="background:${c}"></i>`).join('')}</span><b>${esc(t.name)}</b><small>${esc(t.note)}</small></button>`).join('')}
-            <div class="theme-card soon">your next theme<br>goes here</div>
+            ${THEMES.map((t) => { const pal = PALETTES[t.palette || 'tokyonight']; return `<button class="theme-card ${s.theme === t.id ? 'sel' : ''}" data-theme="${t.id}"><span class="sw">${themeSwatch(pal).map((c) => `<i style="background:${c}"></i>`).join('')}</span><b>${esc(t.name)}</b><small>${esc(t.note || (pal.light ? 'light' : 'dark'))}</small></button>`; }).join('')}
           </div>
         </div>
 
@@ -341,6 +412,16 @@ const Classic = {
 
         <div class="set-group"><h2>Claude Code</h2><p>desk drives the <span class="mono">claude</span> CLI you already have installed and logged into.</p>
           <div class="set-row"><label>CLI path<small>Leave as <span class="mono">claude</span> if it's on your PATH</small></label><div><input class="text-in" data-text="claudePath" value="${esc(s.claudePath)}" spellcheck="false"><span class="ver" id="ver">checking…</span></div></div>
+        </div>
+
+        <div class="set-group"><h2>Terminal</h2><p>Ctrl \` opens it. "Open" on a file starts your editor there.</p>
+          <div class="set-row"><label>Editor<small>Leave empty to use <span class="mono">$EDITOR</span></small></label><input class="text-in" data-text="editor" value="${esc(s.editor || '')}" placeholder="${esc(Terms.info.editor || 'nvim')}" spellcheck="false"></div>
+          <div class="set-row"><label>Shell<small>Leave empty for your login shell</small></label><input class="text-in" data-text="shell" value="${esc(s.shell || '')}" placeholder="${esc(Terms.info.shell || '')}" spellcheck="false"></div>
+          ${Terms.info.available ? '' : `<div class="set-row"><label>Status</label><span style="color:var(--bad)">Off: node-pty is ${esc(Terms.info.error || 'missing')}. Run <span class="mono">npm install</span> and restart.</span></div>`}
+        </div>
+
+        <div class="set-group"><h2>What's new</h2><p>What changed in desk, newest first.</p>
+          <button class="btn" data-news>${ICON.news} Read the changelog</button>
         </div>
 
         <div class="set-group"><h2>Notifications</h2><p>A desktop ping when a session needs you or finishes while you're looking elsewhere.</p>
@@ -365,6 +446,7 @@ const Classic = {
         saveSettings({ notify: on });
         return;
       }
+      if (e.target.closest('[data-news]')) openChangelog();
       if (e.target.closest('[data-side]')) $('#app').classList.add('side-open');
     };
     for (const input of $$('[data-text]', main)) {

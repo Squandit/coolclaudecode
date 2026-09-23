@@ -4,7 +4,9 @@ A local web UI for Claude Code. Several sessions run side by side, and permissio
 
 It drives the `claude` CLI you already have installed, so it uses your existing login. That works with a Pro or Max subscription, and you don't need an API key. Every session is a normal Claude Code session, which means you can pick any of them up in the terminal with `claude --resume`. It also works the other way: sessions you started in the terminal show up in desk, ready to resume.
 
-There are two themes so far. **Catppuccin Mocha** is the classic layout: sidebar, one session, info panel. **Riced** turns the page into a tiling desktop: every open session is its own window, with a waybar-style bar on top and a `desk.conf` you edit live. Switch between them in settings. [IDEAS.md](IDEAS.md) has where it could go next.
+Other things it does: a real terminal in the page (Ctrl \`), a git Changes card with diffs, "open" on any file to start your editor on it in a terminal, and a theme switcher (Alt T). [CHANGELOG.md](CHANGELOG.md) has the full list.
+
+There are two layouts. The **classic** layout has a sidebar, one session and an info panel. It comes in Catppuccin Mocha and Latte, Tokyo Night, Gruvbox, Nord, Rosé Pine and Everforest. **Riced** turns the page into a tiling desktop: every open session is its own window, with a waybar-style bar on top and a `desk.conf` you edit live. Switch between them in settings. [IDEAS.md](IDEAS.md) has where it could go next.
 
 ### Riced
 
@@ -18,19 +20,24 @@ Workspaces are projects. Windows tile Hyprland-style (dwindle, master or monocle
 | Alt F | fullscreen the focused window |
 | Alt Q | put the focused window away (history is kept) |
 | Alt C | desk.conf |
-| Alt I | info panel: to-dos, files touched, session stats, context |
+| Alt I | info panel: to-dos, git changes, files touched, session stats, context |
+| Ctrl ` | new terminal window |
+| Alt T | themes (works in both layouts) |
 
 Alt is the modifier because the browser never gets the Super key.
 
 ## Run it
 
-You need Node 18 or newer and Claude Code installed and logged in (run `claude` once in a terminal to check). There are no dependencies to install.
+You need Node 18 or newer and Claude Code installed and logged in (run `claude` once in a terminal to check).
 
 ```sh
 git clone https://github.com/Squandit/coolclaudecode.git
 cd coolclaudecode
+npm install        # only needed for the built-in terminal
 npm start          # opens http://localhost:4317
 ```
+
+`npm install` fetches two small things: xterm.js (the terminal display) and node-pty with prebuilt binaries for Linux, macOS and Windows, so nothing gets compiled. Skip it and everything except the terminal still works.
 
 Want to see it first without spending any usage? `npm run demo` starts it with made-up sessions and a fake Claude that goes through a scripted turn, permission prompts included. Demo mode never reads your real Claude Code history.
 
@@ -52,16 +59,18 @@ The server only listens on `127.0.0.1`. It rejects requests that don't come from
 | `demo.js` | Fake `claude` process and seeded sessions for `npm run demo` |
 | `public/js/core.js` | Helpers, markdown, icons, the theme list |
 | `public/js/pane.js` | One session's view (transcript, permission cards, composer) |
+| `public/js/term.js` | Terminals, the git Changes card, theme picker, changelog |
+| `lib/terminals.js` | Shells over node-pty |
+| `lib/git.js` | git status and diffs |
 | `public/js/classic.js` | The classic layout |
 | `public/js/tiling.js` | The riced layout, desk.conf parsing and palettes |
 | `public/js/app.js` | Boot, live updates, switching layouts |
 | `public/app.css` | Shared components, colours come from the theme |
-| `public/themes/mocha.css` | Catppuccin Mocha tokens |
 | `public/themes/riced.css` | The tiling desktop's styling |
 
 ## Adding a theme
 
-Copy `public/themes/mocha.css`, change the values, and add an entry to `THEMES` at the top of `public/js/core.js`. It then shows up in settings. A theme with `layout: 'tiling'` gets the riced desktop, and its CSS can restyle all of it.
+Add a palette to `PALETTES` and an entry to `THEMES` at the top of `public/js/core.js`. It then shows up in the switcher and in settings. Riced gets its palette from `desk.conf`, so a new palette works there too (`colors = yourname`).
 
 ## Notes
 

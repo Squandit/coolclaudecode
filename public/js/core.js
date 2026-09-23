@@ -5,12 +5,55 @@
 
 const TOKEN = document.querySelector('meta[name="desk-token"]').content;
 
-// A theme is a CSS file in /themes plus a layout: 'classic' (sidebar, one session,
-// side panel) or 'tiling' (every open session is a window). Add one there and list it here.
+// Colour palettes. Every theme (classic or riced) is built from one of these.
+const PALETTES = {
+  tokyonight: { crust: '#0f0f14', mantle: '#16161e', base: '#1a1b26', s0: '#292e42', s1: '#414868', line: '#232433', fg: '#c0caf5', fg2: '#a9b1d6', fg3: '#565f89', accent: '#7aa2f7', accent2: '#bb9af7', ok: '#9ece6a', warn: '#e0af68', hot: '#ff9e64', bad: '#f7768e', info: '#7dcfff' , blue: '#7aa2f7', magenta: '#bb9af7', cyan: '#7dcfff' },
+  latte: { light: true, crust: '#dce0e8', mantle: '#e6e9ef', base: '#eff1f5', s0: '#ccd0da', s1: '#bcc0cc', line: '#d6dae3', fg: '#4c4f69', fg2: '#6c6f85', fg3: '#8c8fa1', accent: '#8839ef', accent2: '#1e66f5', ok: '#40a02b', warn: '#df8e1d', hot: '#fe640b', bad: '#d20f39', info: '#1e66f5' , blue: '#1e66f5', magenta: '#8839ef', cyan: '#179299' },
+  catppuccin: { crust: '#11111b', mantle: '#181825', base: '#1e1e2e', s0: '#313244', s1: '#45475a', line: '#2a2b3c', fg: '#cdd6f4', fg2: '#a6adc8', fg3: '#7f849c', accent: '#cba6f7', accent2: '#89b4fa', ok: '#a6e3a1', warn: '#f9e2af', hot: '#fab387', bad: '#f38ba8', info: '#89dceb' , blue: '#89b4fa', magenta: '#f5c2e7', cyan: '#94e2d5' },
+  gruvbox: { crust: '#141617', mantle: '#1d2021', base: '#282828', s0: '#3c3836', s1: '#504945', line: '#32302f', fg: '#ebdbb2', fg2: '#d5c4a1', fg3: '#928374', accent: '#fabd2f', accent2: '#83a598', ok: '#b8bb26', warn: '#fabd2f', hot: '#fe8019', bad: '#fb4934', info: '#83a598' , blue: '#83a598', magenta: '#d3869b', cyan: '#8ec07c' },
+  nord: { crust: '#1f232b', mantle: '#242933', base: '#2e3440', s0: '#3b4252', s1: '#4c566a', line: '#373e4c', fg: '#eceff4', fg2: '#d8dee9', fg3: '#7b88a1', accent: '#88c0d0', accent2: '#b48ead', ok: '#a3be8c', warn: '#ebcb8b', hot: '#d08770', bad: '#bf616a', info: '#81a1c1' , blue: '#81a1c1', magenta: '#b48ead', cyan: '#88c0d0' },
+  rosepine: { crust: '#111019', mantle: '#16141f', base: '#191724', s0: '#26233a', s1: '#403d52', line: '#21202e', fg: '#e0def4', fg2: '#908caa', fg3: '#6e6a86', accent: '#c4a7e7', accent2: '#ebbcba', ok: '#9ccfd8', warn: '#f6c177', hot: '#ebbcba', bad: '#eb6f92', info: '#3e8fb0' , blue: '#31748f', magenta: '#c4a7e7', cyan: '#9ccfd8' },
+  everforest: { crust: '#1e2326', mantle: '#232a2e', base: '#2d353b', s0: '#343f44', s1: '#475258', line: '#2e383c', fg: '#d3c6aa', fg2: '#9da9a0', fg3: '#7a8478', accent: '#a7c080', accent2: '#7fbbb3', ok: '#a7c080', warn: '#dbbc7f', hot: '#e69875', bad: '#e67e80', info: '#7fbbb3' , blue: '#7fbbb3', magenta: '#d699b6', cyan: '#83c092' },
+};
+
+// A theme is a palette plus a layout: 'classic' (sidebar, one session, side panel)
+// or 'tiling' (every open session and terminal is a window). Riced takes its
+// palette from desk.conf.
 const THEMES = [
-  { id: 'mocha', name: 'Catppuccin Mocha', note: 'Soft pastels, classic layout', layout: 'classic', swatch: ['#11111b', '#1e1e2e', '#313244', '#cba6f7', '#fab387', '#a6e3a1', '#89b4fa'] },
-  { id: 'riced', name: 'Riced', note: 'Tiling desktop, sessions as windows', layout: 'tiling', swatch: ['#0f0f14', '#1a1b26', '#292e42', '#7aa2f7', '#bb9af7', '#9ece6a', '#ff9e64'] },
+  { id: 'mocha', name: 'Catppuccin Mocha', layout: 'classic', palette: 'catppuccin' },
+  { id: 'latte', name: 'Catppuccin Latte', layout: 'classic', palette: 'latte' },
+  { id: 'tokyonight', name: 'Tokyo Night', layout: 'classic', palette: 'tokyonight' },
+  { id: 'gruvbox', name: 'Gruvbox', layout: 'classic', palette: 'gruvbox' },
+  { id: 'nord', name: 'Nord', layout: 'classic', palette: 'nord' },
+  { id: 'rosepine', name: 'Rosé Pine', layout: 'classic', palette: 'rosepine' },
+  { id: 'everforest', name: 'Everforest', layout: 'classic', palette: 'everforest' },
+  { id: 'riced', name: 'Riced', layout: 'tiling', note: 'tiling desktop, set up in desk.conf' },
 ];
+function themeSwatch(pal) { return [pal.crust, pal.base, pal.s0, pal.accent, pal.accent2, pal.ok, pal.hot]; }
+
+const MONO = "'JetBrains Mono', ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace";
+
+// Turn a palette into the CSS variables everything else uses.
+function paletteVars(pal, { accent, radius = [10, 7, 5, 3, 5], font } = {}) {
+  const a = accent || pal.accent;
+  const mix = (c, pct) => `color-mix(in srgb, ${c} ${pct}%, transparent)`;
+  const [lg, md, sm, xs, pill] = radius;
+  return `
+    --bg: ${pal.crust}; --panel: ${pal.base}; --panel-2: ${pal.mantle};
+    --raised: ${pal.s0}; --raised-2: ${pal.s1}; --line: ${pal.line}; --line-strong: ${pal.s1};
+    --fg: ${pal.fg}; --fg-2: ${pal.fg2}; --fg-3: ${pal.fg3};
+    --accent: ${a}; --accent-2: ${pal.accent2}; --accent-fg: ${pal.light ? pal.base : pal.crust};
+    --claude: ${pal.hot}; --you: ${pal.accent2};
+    --ok: ${pal.ok}; --warn: ${pal.warn}; --hot: ${pal.hot}; --bad: ${pal.bad}; --info: ${pal.info};
+    --add: ${pal.ok}; --del: ${pal.bad}; --add-bg: ${mix(pal.ok, pal.light ? 14 : 10)}; --del-bg: ${mix(pal.bad, pal.light ? 12 : 10)};
+    --code-bg: ${pal.mantle}; --ring: ${mix(a, 55)};
+    --shadow: ${pal.light ? '0 1px 2px rgba(0,0,0,.06), 0 10px 30px -14px rgba(0,0,0,.18)' : '0 1px 0 rgba(255,255,255,.03) inset, 0 12px 32px -12px rgba(0,0,0,.6)'};
+    --r-lg: ${lg}px; --r-md: ${md}px; --r-sm: ${sm}px; --r-xs: ${xs}px; --r-pill: ${pill}px;
+    --ab: ${a}; --ib: ${pal.s0}; --bw: 1px;
+    --ansi-blue: ${pal.blue}; --ansi-magenta: ${pal.magenta}; --ansi-cyan: ${pal.cyan};
+    --font: ${font || MONO}; --font-mono: ${font || MONO};
+    color-scheme: ${pal.light ? 'light' : 'dark'};`;
+}
 
 const MODELS = [
   { id: 'opus', name: 'Opus' },
@@ -216,8 +259,51 @@ const ICON = {
   pencil: I('<path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>'),
   x: I('<path d="M6 6l12 12M18 6 6 18"/>'),
   home: I('<path d="M3 11 12 4l9 7v8a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>'),
+  palette: I('<path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.7-.9 1.4-1.9-.3-1 .4-2.1 1.5-2.1H17a4 4 0 0 0 4-4c0-5.5-4-10-9-10z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7.5" r="1"/>'),
+  term: I('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M12 15h5"/>'),
+  git: I('<circle cx="6" cy="6" r="2.2"/><circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="12" r="2.2"/><path d="M6 8.2v7.6M8 6h4a4 4 0 0 1 4 4v0"/>'),
+  refresh: I('<path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/>'),
+  news: I('<path d="M4 5h13v14H6a2 2 0 0 1-2-2zM17 9h3v8a2 2 0 0 1-2 2"/><path d="M8 9h5M8 13h5"/>'),
   check: I('<path d="m5 12 4.5 4.5L19 7"/>', 'stroke-width="3"'),
   brain: I('<path d="M9 4a3 3 0 0 0-3 3 3 3 0 0 0-2 5 3 3 0 0 0 2 5 3 3 0 0 0 6 1V5a2 2 0 0 0-3-1zM15 4a3 3 0 0 1 3 3 3 3 0 0 1 2 5 3 3 0 0 1-2 5 3 3 0 0 1-6 1"/>'),
 };
 const LOGO = `<svg class="brand-mark" viewBox="0 0 64 64"><g stroke="var(--claude)" stroke-width="7" stroke-linecap="round"><path d="M32 10v44M10 32h44M16.4 16.4l31.2 31.2M47.6 16.4 16.4 47.6"/></g><circle cx="32" cy="32" r="7" fill="var(--accent)"/></svg>`;
 
+// ------------------------------------------------------------------ popups
+
+// A floating window with a backdrop. Closes on Esc, the x, or a click outside.
+function openModal({ title, sub = '', body = '', actions = '', cls = '', onClose } = {}) {
+  closeModal();
+  const back = document.createElement('div');
+  back.className = 'modal-back';
+  back.innerHTML = `<div class="fwin modal ${cls}" role="dialog" aria-label="${esc(title)}">
+    <div class="fwin-bar"><span class="fwin-title">${esc(title)}</span><span class="dim">${sub}</span>${actions}<button class="icon-btn" data-close title="Close (Esc)">${ICON.x}</button></div>
+    <div class="modal-body">${body}</div>
+  </div>`;
+  back._onClose = onClose;
+  back.addEventListener('mousedown', (e) => { if (e.target === back) closeModal(); });
+  back.querySelector('[data-close]').onclick = () => closeModal();
+  document.body.appendChild(back);
+  return back.querySelector('.modal');
+}
+function closeModal() {
+  const back = $('.modal-back');
+  if (!back) return false;
+  back.remove();
+  if (back._onClose) back._onClose();
+  return true;
+}
+
+// Unified diff text (from git) into the hunks the diff view draws.
+function parseUnified(text) {
+  const hunks = [];
+  let h = null;
+  for (const line of String(text || '').replace(/\n$/, '').split('\n')) {
+    const m = line.match(/^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+    if (m) { h = { oldStart: +m[1], newStart: +m[2], lines: [] }; hunks.push(h); continue; }
+    if (!h) continue;
+    if (line === '') h.lines.push(' ');
+    else if (/^[ +\-\\]/.test(line)) h.lines.push(line);
+  }
+  return hunks;
+}

@@ -583,3 +583,61 @@ kbd {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ------------------------------------------------------------ main column: session + terminal dock */
+
+.main-body { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; overflow: hidden; }
+.dock { flex: none; display: flex; flex-direction: column; border-top: 1px solid var(--line-strong); background: var(--panel-2); position: relative; min-height: 120px; }
+.dock-grip { position: absolute; left: 0; right: 0; top: -4px; height: 8px; cursor: ns-resize; z-index: 2; }
+.dock-bar { display: flex; align-items: center; gap: 4px; padding: 4px 6px 0 8px; border-bottom: 1px solid var(--line); }
+.dock-bar .icon-btn { font-weight: 800; font-size: 15px; }
+.dock-tabs { flex: 1; min-width: 0; display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+.dock-tab { display: inline-flex; align-items: center; gap: 7px; padding: 6px 8px 7px 10px; border-radius: var(--r-sm) var(--r-sm) 0 0; color: var(--fg-3); font-size: 12.5px; font-weight: 700; white-space: nowrap; border-bottom: 2px solid transparent; }
+.dock-tab:hover { color: var(--fg); background: var(--raised); }
+.dock-tab.on { color: var(--fg); border-bottom-color: var(--accent); }
+.dock-tab i { display: inline-grid; place-items: center; opacity: .5; border-radius: var(--r-xs); }
+.dock-tab i:hover { opacity: 1; background: var(--raised-2); }
+.dock-tab i svg { width: 11px; height: 11px; }
+.dock-body { flex: 1; min-height: 0; position: relative; }
+.term-host { position: absolute; inset: 0; padding: 6px 4px 4px 10px; background: var(--panel-2); }
+.term-host .xterm { height: 100%; }
+.term-host .xterm-viewport { background: transparent !important; }
+.term-host .xterm-viewport::-webkit-scrollbar { width: 8px; }
+.term-err { padding: 16px; color: var(--bad); font-weight: 700; }
+
+/* ------------------------------------------------------------ git changes card and clickable file rows */
+
+.files .fn { background: none; border: 0; padding: 0; text-align: left; cursor: pointer; color: var(--fg); }
+.files .fn:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+.row-act { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: var(--r-xs); color: var(--fg-3); opacity: 0; flex: none; }
+.row-act svg { width: 12px; height: 12px; }
+.files li:hover .row-act, .card-head .row-act { opacity: 1; }
+.row-act:hover { background: var(--raised); color: var(--fg); }
+.card-head .count { display: inline-flex; align-items: center; gap: 4px; }
+.git-branch { display: flex; align-items: center; gap: 6px; margin: -4px 0 10px; font-size: 12px; color: var(--fg-2); font-family: var(--font-mono); }
+.gk { width: 16px; flex: none; text-align: center; font-size: 11px; font-weight: 800; border-radius: var(--r-xs); }
+.gk.k-M { color: var(--warn); } .gk.k-A, .gk.k-U { color: var(--ok); } .gk.k-D { color: var(--bad); } .gk.k-R { color: var(--info); }
+.git-files { max-height: 280px; overflow-y: auto; }
+
+/* ------------------------------------------------------------ popups */
+
+.modal-back { position: fixed; inset: 0; z-index: 70; background: color-mix(in srgb, var(--bg) 55%, transparent); display: grid; place-items: start center; padding: 8vh 16px 16px; animation: fade .15s ease; }
+@keyframes fade { from { opacity: 0; } }
+.fwin.modal { position: relative; width: min(860px, 100%); max-height: 84vh; }
+.modal .fwin-bar .btn { height: 28px; padding: 0 10px; font-size: 12px; }
+.modal-body { overflow: auto; min-height: 0; flex: 1; }
+.diff-modal .diff { margin: 0; border: 0; border-radius: 0; }
+.diff-modal .diff-body { font-size: 12.5px; }
+.theme-modal { width: min(520px, 100%); outline: none; }
+.theme-list { padding: 6px; display: flex; flex-direction: column; gap: 2px; }
+.theme-list button { display: grid; grid-template-columns: 112px 1fr auto; align-items: center; gap: 14px; padding: 8px 10px; border-radius: var(--r-sm); text-align: left; }
+.theme-list button.sel { background: var(--raised); }
+.theme-list button.current .nm::after { content: ' ●'; color: var(--accent); }
+.theme-list .sw { display: flex; height: 22px; border-radius: var(--r-xs); overflow: hidden; box-shadow: 0 0 0 1px var(--line-strong); }
+.theme-list .sw i { flex: 1; }
+.theme-list .nm { font-weight: 800; }
+.theme-list small { color: var(--fg-3); }
+.news-modal { width: min(720px, 100%); }
+.news { padding: 6px 20px 20px; font-size: 13.5px; }
+.news h2 { font-size: 16px; margin-top: 20px; color: var(--accent); }
+.usage-btns { display: inline-flex; gap: 2px; }

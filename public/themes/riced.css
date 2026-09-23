@@ -295,3 +295,9 @@ button.mod:hover, .ws:hover { color: var(--fg); border-color: var(--line-strong)
   .mod, .ws { padding: 0 8px; }
   .layout-tiling .log { padding: 10px 12px 14px; }
 }
+
+/* terminal windows */
+.layout-tiling .term-win .pane-in { display: flex; flex-direction: column; }
+.layout-tiling .term-dot { display: inline-grid !important; color: var(--accent); }
+.layout-tiling .term-dot svg { width: 13px; height: 13px; }
+.term-slot { flex: 1; min-height: 0; position: relative; }

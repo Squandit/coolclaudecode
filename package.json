@@ -1,14 +1,25 @@
 {
   "name": "desk",
-  "version": "0.1.0",
-  "description": "A local web UI for Claude Code. No dependencies, runs on Linux, macOS and Windows.",
+  "version": "0.4.0",
+  "description": "A local web UI for Claude Code. Runs on Linux, macOS and Windows.",
   "license": "MIT",
   "private": true,
-  "bin": { "desk": "server.js" },
+  "bin": {
+    "desk": "server.js"
+  },
   "scripts": {
     "start": "node server.js --open",
     "demo": "node server.js --demo --open",
     "dev": "node server.js"
   },
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@xterm/xterm": "6.0.0",
+    "@xterm/addon-fit": "0.11.0"
+  },
+  "optionalDependencies": {
+    "@lydell/node-pty": "1.2.0-beta.15"
+  }
 }

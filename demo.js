@@ -239,6 +239,22 @@ function seed({ newSession, appendEvent, sessions, saveSessions, setUsage, DATA 
     { type: 'result', subtype: 'success', durationMs: 13000, steps: 3, cost: 0.061, usage: usageBlock(61800, 690), contextWindow: 200000, ts: at(2) },
   ]);
 
+  // Give the lemonade stand real files and some uncommitted changes, so Changes has something to show.
+  try {
+    const { execFileSync } = require('child_process');
+    const dir = lemon.cwd;
+    const g = (...args) => execFileSync('git', ['-c', 'user.name=desk demo', '-c', 'user.email=demo@example.invalid', '-c', 'commit.gpgsign=false', ...args], { cwd: dir, stdio: 'ignore' });
+    const write = (f, text) => fs.writeFileSync(path.join(dir, f), text);
+    write('index.html', '<!doctype html>\n<html>\n<head>\n  <link rel="stylesheet" href="style.css">\n</head>\n<body>\n  <h1>Lemonade</h1>\n  <table class="prices">\n    <tr><td>Small</td><td>$1</td></tr>\n    <tr><td>Large</td><td>$2</td></tr>\n  </table>\n</body>\n</html>\n');
+    write('style.css', 'h1 { color: #d4a300; }\n.prices td { padding: 4px 12px; }\n');
+    g('init', '-q', '-b', 'main');
+    g('add', '.');
+    g('commit', '-q', '-m', 'First go at the stand');
+    write('style.css', 'h1 { color: #d4a300; font-size: 3rem; }\n.prices td { padding: 6px 16px; font-size: 1.2rem; }\n');
+    write('index.html', fs.readFileSync(path.join(dir, 'index.html'), 'utf8').replace('<h1>Lemonade</h1>', '<h1>Lemonade 🍋</h1>\n  <p>Open Saturdays, 10 till the lemons run out.</p>'));
+    write('map.html', '<iframe\n  src="https://www.openstreetmap.org/export/embed.html"\n  loading="lazy"\n  title="Where the stand is"></iframe>\n');
+  } catch {}
+
   saveSessions();
   setUsage({
     status: 'allowed_warning',
