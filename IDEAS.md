@@ -1,6 +1,6 @@
 # Theme ideas
 
-desk ships with one theme, Catppuccin Mocha: no gimmick, just a clean dark layout. Everything below is a direction to branch off into. The simple ones only need a new token file in `public/themes/`. The bigger ones change the layout too, so they'd get their own branch.
+desk ships with Catppuccin Mocha (the clean classic layout) and Riced (a tiling desktop). Everything below is a direction to branch off into. The simple ones only need a new token file in `public/themes/`. The bigger ones change the layout too, so they'd get their own branch.
 
 ## Riced desktop (started, it's the "Riced" theme)
 
