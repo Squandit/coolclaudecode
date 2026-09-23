@@ -13,13 +13,18 @@
   <link rel="stylesheet" href="themes/mocha.css" id="theme-css">
 </head>
 <body>
-  <div class="app" id="app">
+  <div class="app" id="app" hidden>
     <aside class="side" id="side"></aside>
     <main class="main" id="main"></main>
     <aside class="tray" id="tray"></aside>
   </div>
+  <div class="desktop" id="desktop" hidden></div>
   <div class="scrim" id="scrim"></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="app.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/pane.js"></script>
+  <script src="js/classic.js"></script>
+  <script src="js/tiling.js"></script>
+  <script src="js/app.js"></script>
 </body>
 </html>

@@ -4,7 +4,23 @@ A local web UI for Claude Code. Several sessions run side by side, and permissio
 
 It drives the `claude` CLI you already have installed, so it uses your existing login. That works with a Pro or Max subscription, and you don't need an API key. Every session is a normal Claude Code session, which means you can pick any of them up in the terminal with `claude --resume`. It also works the other way: sessions you started in the terminal show up in desk, ready to resume.
 
-The first theme is Catppuccin Mocha. See [IDEAS.md](IDEAS.md) for where it could go next.
+There are two themes so far. **Catppuccin Mocha** is the classic layout: sidebar, one session, info panel. **Riced** turns the page into a tiling desktop: every open session is its own window, with a waybar-style bar on top and a `desk.conf` you edit live. Switch between them in settings. [IDEAS.md](IDEAS.md) has where it could go next.
+
+### Riced
+
+Workspaces are projects. Windows tile Hyprland-style (dwindle, master or monocle), and the bar shows your usage limits as block meters. Press Alt C to open `desk.conf`, which controls colours (tokyonight, catppuccin, gruvbox, nord, rosepine, everforest), gaps, border gradients, rounding, font, bar position and wallpaper. Every change shows up as you type.
+
+| keys | does |
+|---|---|
+| Alt Enter | launcher: switch, resume, or start a session (type a folder path or a prompt) |
+| Alt H J K L / arrows | move focus between windows |
+| Alt 1 to 9 | switch workspace |
+| Alt F | fullscreen the focused window |
+| Alt Q | put the focused window away (history is kept) |
+| Alt C | desk.conf |
+| Alt I | info panel: to-dos, files touched, session stats, context |
+
+Alt is the modifier because the browser never gets the Super key.
 
 ## Run it
 
@@ -34,13 +50,18 @@ The server only listens on `127.0.0.1`. It rejects requests that don't come from
 |---|---|
 | `server.js` | HTTP server, session runner, history import |
 | `demo.js` | Fake `claude` process and seeded sessions for `npm run demo` |
-| `public/app.js` | The whole front end, no framework |
-| `public/app.css` | Layout and components, colours come from the theme |
+| `public/js/core.js` | Helpers, markdown, icons, the theme list |
+| `public/js/pane.js` | One session's view (transcript, permission cards, composer) |
+| `public/js/classic.js` | The classic layout |
+| `public/js/tiling.js` | The riced layout, desk.conf parsing and palettes |
+| `public/js/app.js` | Boot, live updates, switching layouts |
+| `public/app.css` | Shared components, colours come from the theme |
 | `public/themes/mocha.css` | Catppuccin Mocha tokens |
+| `public/themes/riced.css` | The tiling desktop's styling |
 
 ## Adding a theme
 
-Copy `public/themes/mocha.css`, change the values, and add an entry to `THEMES` at the top of `public/app.js`. It then shows up in settings.
+Copy `public/themes/mocha.css`, change the values, and add an entry to `THEMES` at the top of `public/js/core.js`. It then shows up in settings. A theme with `layout: 'tiling'` gets the riced desktop, and its CSS can restyle all of it.
 
 ## Notes
 

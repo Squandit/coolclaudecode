@@ -50,6 +50,7 @@ const DEFAULT_SETTINGS = {
   defaultCwd: '',
   theme: 'mocha',
   notify: true,
+  rice: '',
 };
 let settings = { ...DEFAULT_SETTINGS, ...readJSON('settings.json', {}) };
 let sessions = readJSON('sessions.json', []);
@@ -493,6 +494,23 @@ function listFiles(root, limit = 4000) {
   return out;
 }
 
+// For the neofetch splash in the riced theme. Only ever shown on your own screen.
+let sysCache = null;
+function systemInfo() {
+  if (sysCache) return sysCache;
+  let osName = { linux: 'Linux', darwin: 'macOS', win32: 'Windows' }[process.platform] || process.platform;
+  if (process.platform === 'linux') {
+    try {
+      const m = fs.readFileSync('/etc/os-release', 'utf8').match(/^PRETTY_NAME="?([^"\n]+)"?/m);
+      if (m) osName = m[1];
+    } catch {}
+  }
+  let user = 'you', host = 'desk';
+  if (!DEMO) { try { user = os.userInfo().username; } catch {} host = os.hostname().split('.')[0]; }
+  sysCache = { os: osName, kernel: os.release(), user, host, node: process.version, cpus: os.cpus().length, memGb: Math.round(os.totalmem() / 1073741824) };
+  return sysCache;
+}
+
 function prettyPath(p) {
   const home = HOME_DIR;
   return p && p.startsWith(home) ? '~' + p.slice(home.length).split(path.sep).join('/') : p;
@@ -593,6 +611,7 @@ async function route(req, res, url) {
       settings, usage, demo: DEMO,
       home: prettyPath(HOME_DIR),
       platform: process.platform,
+      system: systemInfo(),
       sessions: sessions.map(publicSession),
     });
   }
@@ -606,6 +625,7 @@ async function route(req, res, url) {
   if (m === 'PUT' && parts[0] === 'settings') {
     const body = await readBody(req);
     for (const k of Object.keys(DEFAULT_SETTINGS)) if (body[k] !== undefined) settings[k] = body[k];
+    if (typeof settings.rice !== 'string' || settings.rice.length > 50000) settings.rice = '';
     writeJSON('settings.json', settings);
     broadcast({ kind: 'settings', settings });
     return json(res, 200, settings);

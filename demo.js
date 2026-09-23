@@ -188,6 +188,20 @@ function seed({ newSession, appendEvent, sessions, saveSessions, setUsage, DATA 
   const weather = newSession({ cwd: mk('weather-cli'), title: 'weather cli units flag' });
   Object.assign(weather, { status: 'idle', started: true, titled: true, updatedAt: at(10) });
 
+  const mapPage = newSession({ cwd: mk('lemonade-stand'), title: 'map of the stand' });
+  Object.assign(mapPage, { status: 'done', started: true, titled: true, updatedAt: at(25) });
+  const mp = (f) => path.join(mapPage.cwd, f);
+  const mw = uid(), mg = uid();
+  add(mapPage, [
+    { t: 'prompt', text: 'where should the map go? keep it light, no big libraries', ts: at(30) },
+    assistantTool(mg, 'Grep', { pattern: '<table', path: mp('index.html') }),
+    toolResult(mg, 'index.html:8:  <table class="prices">…</table>', {}),
+    assistantTool(mw, 'Write', { file_path: mp('map.html'), content: '<iframe\n  src="https://www.openstreetmap.org/export/embed.html"\n  loading="lazy"\n  title="Where the stand is"></iframe>\n' }),
+    toolResult(mw, 'File created', { type: 'create', filePath: mp('map.html'), content: '…', structuredPatch: [] }),
+    assistantText('A plain OpenStreetMap embed keeps it light: no script, no API key. It lives in `map.html` for now, so you can decide where it goes on the page.'),
+    { type: 'result', subtype: 'success', durationMs: 21000, steps: 3, cost: 0.048, usage: usageBlock(24000, 420), contextWindow: 200000, ts: at(25) },
+  ]);
+
   const lemon = newSession({ cwd: mk('lemonade-stand'), title: 'lemonade stand site' });
   Object.assign(lemon, { status: 'done', started: true, titled: true, pinned: true, updatedAt: at(2), model: 'opus', effort: 'high', permission: 'default' });
   const l = (f) => path.join(lemon.cwd, f);

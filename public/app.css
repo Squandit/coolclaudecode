@@ -1,6 +1,7 @@
 /* Layout and components. Colours and fonts come from the theme file (themes/*.css). */
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { height: 100%; margin: 0; }
 body {
   background: var(--bg);
@@ -47,6 +48,12 @@ svg { flex: none; }
 .tray { overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; background: var(--panel-2); }
 
 .scrim { display: none; }
+.dim { color: var(--fg-3); }
+
+/* a session view; the classic layout shows one, the tiling layout many */
+.pane { display: flex; flex: 1; min-width: 0; min-height: 0; }
+.pane-in { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; position: relative; }
+.win-dot, .win-close, .prompt-sign { display: none !important; }
 
 /* ------------------------------------------------------------ sidebar */
 
@@ -101,8 +108,8 @@ kbd {
 .s-item.active::before { content: ''; position: absolute; left: -8px; top: 10px; bottom: 10px; width: 3px; border-radius: var(--r-xs); background: var(--accent); }
 .s-item .dot { margin-top: 7px; }
 .s-body { min-width: 0; flex: 1; }
-.s-title { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.s-sub { font-size: 12px; color: var(--fg-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.s-title { display: block; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.s-sub { display: block; font-size: 12px; color: var(--fg-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .s-sub.needs { color: var(--hot); font-weight: 700; }
 .s-sub.err { color: var(--bad); }
 .s-close { opacity: 0; color: var(--fg-3); padding: 2px 4px; border-radius: var(--r-xs); line-height: 1; }
@@ -128,6 +135,7 @@ kbd {
 .p-sess { display: block; width: 100%; text-align: left; padding: 5px 10px; border-radius: var(--r-sm); font-size: 13px; color: var(--fg-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .p-sess:hover { background: var(--raised); color: var(--fg); }
 .p-sess small { color: var(--fg-3); margin-left: 6px; }
+.p-sess.accent { color: var(--accent); font-weight: 700; }
 .empty-note { padding: 6px 10px; font-size: 13px; color: var(--fg-3); }
 
 /* usage card, bottom left */
@@ -209,7 +217,7 @@ kbd {
 .pill:hover .ctx-ring::after { background: var(--raised-2); }
 
 .menu {
-  position: absolute; z-index: 30;
+  position: fixed; z-index: 60;
   min-width: 220px; padding: 6px;
   background: var(--panel);
   border: 1px solid var(--line-strong);
@@ -388,6 +396,8 @@ kbd {
   transition: border-color .15s ease, box-shadow .15s ease;
 }
 .composer-box:focus-within { border-color: var(--ring); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent); }
+.composer-row { display: flex; align-items: flex-start; }
+.composer-row textarea { flex: 1; min-width: 0; }
 .composer textarea {
   display: block; width: 100%;
   min-height: 52px; max-height: 40vh;
