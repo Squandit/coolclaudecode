@@ -375,6 +375,7 @@ async function openCrew() {
     <div class="crew-opts">
       <label>Escalate a task at most <input class="text-in num-in" type="number" min="0" max="6" data-opt="escalate" value="${crew.escalate}"> times</label>
       <label class="chk"><input type="checkbox" data-opt="approve" ${crew.approve ? 'checked' : ''}> Show me the plan before helpers start</label>
+      <label class="chk"><input type="checkbox" data-opt="skipSmall" ${crew.skipSmall !== false ? 'checked' : ''}> Let the planner skip planning for one-file changes</label>
     </div>
     <div class="crew-actions">
       <button class="btn primary" data-save>Save</button>
@@ -390,6 +391,7 @@ async function openCrew() {
     else if (t.dataset.k) crew.levels[+t.dataset.i][t.dataset.k] = t.value;
     else if (t.dataset.opt === 'escalate') crew.escalate = +t.value || 0;
     else if (t.dataset.opt === 'approve') crew.approve = t.checked;
+    else if (t.dataset.opt === 'skipSmall') crew.skipSmall = t.checked;
   };
   body.onclick = async (e) => {
     if (e.target.closest('[data-defaults]')) { crew = JSON.parse(JSON.stringify(info.defaults)); body.innerHTML = draw(); return; }

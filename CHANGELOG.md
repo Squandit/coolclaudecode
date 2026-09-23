@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.1
+
+- The planner only skips the plan for a genuinely single change (one or two files, nothing to test separately). Anything with separate parts gets planned and split across levels. A new switch in Edit the crew turns the shortcut off entirely.
+
 ## 0.5.0
 
 - **Crew mode.** A planner (Opus 5.5, medium) splits your request into tasks and hands each one to the cheapest helper that can do it: a Haiku scout for reading, Sonnet 5 at medium, high and xhigh, and Opus 5.5 at low, medium, high and xhigh. If a helper fails, the task moves up a level. You see the plan first and press Go. Helper runs show with their level, tokens and time, and the Crew card shows the plan, escalations like S3 → O1, and cost per model. Turn it on per session from the header pill, the Crew button on the start page, or "crew session" in the Riced launcher.
