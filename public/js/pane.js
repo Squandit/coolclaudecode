@@ -201,6 +201,15 @@ class Pane {
     if (this === focusedPane()) renderTraySoon();
   }
 
+  onHelper(msg) {
+    const t = this.tools.get(msg.toolUseId);
+    if (!t || t.el.classList.contains('ok') || t.el.classList.contains('failed')) return;
+    let live = $('.helper-live', t.el);
+    if (!live) { $('.tool-text', t.el).insertAdjacentHTML('beforeend', '<span class="helper-live dim"></span>'); live = $('.helper-live', t.el); }
+    const bits = [msg.text, msg.tokens ? fmtTokens(msg.tokens) + ' tokens' : '', msg.ms ? fmtDur(msg.ms) : ''].filter(Boolean);
+    live.textContent = ' · ' + bits.join(' · ');
+  }
+
   onActivity(text) {
     this.activity = text;
     this.renderActivity();
@@ -362,6 +371,7 @@ class Pane {
         if (run) {
           const rr = ev.result || {};
           if (rr.status === 'completed' || c.is_error) Object.assign(run, { status: c.is_error ? 'failed' : 'done', tokens: rr.totalTokens, ms: rr.totalDurationMs, model: rr.resolvedModel });
+          else if (rr.resolvedModel) run.model = rr.resolvedModel;
         }
         const tu = m.toolInputs.get(c.tool_use_id);
         if (!tu || c.is_error) continue;
@@ -386,6 +396,9 @@ class Pane {
           }
         }
       }
+    } else if (ev.t === 'helper-done') {
+      const run = m.crewRuns.get(ev.toolUseId);
+      if (run) Object.assign(run, { status: ev.status === 'completed' ? 'done' : 'failed', tokens: ev.tokens, ms: ev.ms });
     } else if (ev.type === 'result') {
       m.turns++;
       m.timeMs += ev.durationMs || 0;
@@ -458,6 +471,19 @@ class Pane {
     } else if (ev.t === 'error') {
       this.endLive();
       this.add(`<div class="err-card">${esc(ev.text)}</div>`);
+    } else if (ev.t === 'helper-done') {
+      const t = this.tools.get(ev.toolUseId);
+      if (t) {
+        t.content = ev.summary;
+        t.result = { ...(t.result || {}), status: 'completed', totalTokens: ev.tokens, totalDurationMs: ev.ms };
+        const d = describeTool(t.name, t.input, s, t.result);
+        $('.tool-text', t.el).innerHTML = d.html;
+        const ok = ev.status === 'completed';
+        t.el.classList.remove('bg');
+        t.el.classList.add(ok ? 'ok' : 'failed');
+        $('.tool-state', t.el).innerHTML = ok ? `<span class="tool-state ok">✓</span>` : `<span class="tool-state err">✗</span>`;
+        if (t.detail) { t.detail.remove(); t.detail = null; }
+      }
     } else if (ev.t === 'decision') {
       const t = this.tools.get(ev.toolUseId);
       const html = `<div class="decision ${ev.allow ? '' : 'no'}">${ev.allow ? (ev.always ? 'you allowed this for the session' : 'you allowed this') : 'you said no'}</div>`;
@@ -483,7 +509,7 @@ class Pane {
       this.endLive();
       // A finished turn has no running tools. Clear any spinner that never got a result.
       for (const t of this.tools.values()) {
-        const spin = t.result === undefined && $('.spin', t.el);
+        const spin = (t.result === undefined) && !t.el.classList.contains('bg') && $('.spin', t.el);
         if (spin) spin.parentElement.innerHTML = '<span class="tool-state dim">–</span>';
       }
       if (ev.isError && ev.text) this.add(`<div class="err-card">${esc(ev.text)}</div>`);
@@ -520,6 +546,11 @@ class Pane {
     entry.result = result;
     entry.content = typeof c.content === 'string' ? c.content : Array.isArray(c.content) ? c.content.map((x) => x.text || '').join('\n') : '';
     entry.isError = !!c.is_error;
+    if (result && result.status === 'async_launched') {
+      // Still working, now in the background. helper-done finishes this row later.
+      entry.el.classList.add('bg');
+      return;
+    }
     const d = describeTool(entry.name, entry.input, s, result);
     $('.tool-text', entry.el).innerHTML = d.html;
     entry.el.classList.add(entry.isError ? 'failed' : 'ok');

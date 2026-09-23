@@ -122,6 +122,9 @@ function onServer(msg) {
       panes.get(msg.id)?.onActivity(msg.text);
       refreshAgos();
       break;
+    case 'helper':
+      panes.get(msg.id)?.onHelper(msg);
+      break;
     case 'term':
       Terms.onData(msg.id, msg.data, msg.end);
       break;

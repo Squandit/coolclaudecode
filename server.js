@@ -180,7 +180,7 @@ function startRunner(s) {
     ? require('./demo').spawnFake(s)
     : spawn(cmd, IS_WIN ? claudeArgs(s).map(winQuote) : claudeArgs(s), { cwd: s.cwd, env, shell: IS_WIN, windowsHide: true });
 
-  const r = { child, pending: new Map(), lastCost: 0, lastModelCost: {}, agentCalls: new Map(), dead: false, stderr: '', idleTimer: null, turnOpen: false };
+  const r = { child, pending: new Map(), lastCost: 0, lastModelCost: {}, agentCalls: new Map(), helperProgress: new Map(), dead: false, stderr: '', idleTimer: null, turnOpen: false };
   runners.set(s.id, r);
 
   const send = (obj) => { if (!r.dead) child.stdin.write(JSON.stringify(obj) + '\n'); };
@@ -276,6 +276,16 @@ function handleClaudeEvent(s, r, ev) {
         touch(s, patch);
       } else if (ev.subtype === 'task_summary' || ev.subtype === 'status') {
         broadcast({ kind: 'activity', id: s.id, text: ev.subtype === 'task_summary' ? ev.detail : null });
+      } else if (ev.subtype === 'task_progress' && ev.tool_use_id) {
+        // Live progress from a helper: its current step and running totals.
+        const u = ev.usage || {};
+        r.helperProgress.set(ev.tool_use_id, { tokens: u.total_tokens, tools: u.tool_uses, ms: u.duration_ms });
+        broadcast({ kind: 'helper', id: s.id, toolUseId: ev.tool_use_id, text: ev.description, tokens: u.total_tokens, tools: u.tool_uses, ms: u.duration_ms });
+      } else if (ev.subtype === 'task_notification' && ev.tool_use_id) {
+        // A helper the CLI moved to the background has finished.
+        const p = r.helperProgress.get(ev.tool_use_id) || {};
+        logCrewRun(s, r, ev.tool_use_id, { status: ev.status, totalTokens: p.tokens, totalDurationMs: p.ms, totalToolUseCount: p.tools }, ev.status !== 'completed');
+        appendEvent(s, { t: 'helper-done', toolUseId: ev.tool_use_id, status: ev.status, tokens: p.tokens, ms: p.ms, tools: p.tools, summary: String(ev.summary || '').slice(0, 8000) });
       } else if (ev.subtype === 'compact_boundary') {
         appendEvent(s, { t: 'compact', meta: ev.compact_metadata || null });
       } else if (ev.subtype === 'post_turn_summary' && ev.status_detail) {
@@ -346,27 +356,34 @@ function trackCrew(s, r, ev) {
       r.agentCalls.set(c.id, c.input);
     }
     if (c.type === 'tool_result' && r.agentCalls.has(c.tool_use_id)) {
-      const input = r.agentCalls.get(c.tool_use_id);
-      r.agentCalls.delete(c.tool_use_id);
       const res = ev.tool_use_result && typeof ev.tool_use_result === 'object' ? ev.tool_use_result : {};
-      if (res.status && res.status !== 'completed') continue;
-      const u = res.usage || {};
-      const m = String(input.description || '').match(/#(\d+)/);
-      const row = {
-        ts: Date.now(), session: s.id,
-        level: String(input.subagent_type).split(':')[1],
-        task: m ? +m[1] : null,
-        model: res.resolvedModel || null,
-        tokens: res.totalTokens || null,
-        out: u.output_tokens || null,
-        thinking: u.output_tokens_details ? u.output_tokens_details.thinking_tokens : null,
-        ms: res.totalDurationMs || null,
-        tools: res.totalToolUseCount || null,
-        error: !!c.is_error,
-      };
-      try { fs.appendFileSync(path.join(DATA, 'crew-log.jsonl'), JSON.stringify(row) + '\n'); } catch {}
+      // Moved to the background: the numbers arrive later with task_notification.
+      if (res.status === 'async_launched') continue;
+      logCrewRun(s, r, c.tool_use_id, res, !!c.is_error);
     }
   }
+}
+
+function logCrewRun(s, r, toolUseId, res, isError) {
+  const input = r.agentCalls.get(toolUseId);
+  if (!input) return;
+  r.agentCalls.delete(toolUseId);
+  const u = res.usage || {};
+  const m = String(input.description || '').match(/#(\d+)/);
+  const level = String(input.subagent_type).split(':')[1];
+  const cfg = (settings.crew.levels || []).find((l) => l.id === level);
+  const row = {
+    ts: Date.now(), session: s.id, level,
+    task: m ? +m[1] : null,
+    model: res.resolvedModel || (cfg ? cfg.model : null),
+    tokens: res.totalTokens || null,
+    out: u.output_tokens || null,
+    thinking: u.output_tokens_details ? u.output_tokens_details.thinking_tokens : null,
+    ms: res.totalDurationMs || null,
+    tools: res.totalToolUseCount || null,
+    error: !!isError,
+  };
+  try { fs.appendFileSync(path.join(DATA, 'crew-log.jsonl'), JSON.stringify(row) + '\n'); } catch {}
 }
 
 function crewStats() {

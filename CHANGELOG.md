@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.4
+
+- Crew helpers show live progress on their row (current step, tokens so far, time).
+- Helpers that Claude Code moves to the background part-way through now finish properly: the row completes with its stats, and the run is logged for the crew stats. Before, those runs were missing from the stats.
+
 ## 0.5.3
 
 - The planner decides again when a job is small enough for one helper, as in 0.5.0. A real run showed one S3 doing a small app in one pass beats splitting it. Untick "Let the planner send small jobs straight to one helper" in Edit the crew if you want a plan every time.
