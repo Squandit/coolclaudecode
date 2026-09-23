@@ -259,7 +259,8 @@ function table(rows) {
   ];
   const base = rows.find((r) => r.name === 'solo' && r.cost);
   if (base) cols.push(['vs solo', (r) => (r.cost ? `${(r.cost / base.cost).toFixed(2)}× cost, ${(r.wall / base.wall).toFixed(2)}× time` : '–')]);
-  if (rows.some((r) => r.week != null)) cols.push(['week used', (r) => (r.week != null ? `+${r.week.toFixed(1)}%` : '–')]);
+  // The CLI reports weekly use in whole percent, so small runs often show no change.
+  if (rows.some((r) => r.week != null)) cols.push(['week used', (r) => (r.week == null ? '–' : r.week < 0.5 ? '<1%' : `~${Math.round(r.week)}%`)]);
   const cells = [cols.map((c) => c[0]), ...rows.map((r) => cols.map((c) => c[1](r)))];
   const widths = cols.map((_, i) => Math.max(...cells.map((row) => row[i].length)));
   const line = (row) => row.map((c, i) => c.padEnd(widths[i])).join('  ');
