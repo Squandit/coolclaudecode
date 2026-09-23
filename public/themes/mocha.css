@@ -59,8 +59,12 @@
 
   --font: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
-  --radius: 16px;
-  --radius-sm: 10px;
+  /* corner sizes: panels, cards, controls, small bits, pills */
+  --r-lg: 10px;
+  --r-md: 7px;
+  --r-sm: 5px;
+  --r-xs: 3px;
+  --r-pill: 5px;
 
   color-scheme: dark;
 }
