@@ -56,6 +56,7 @@ const DEFAULT_SETTINGS = {
   rice: '',
   editor: '',
   shell: '',
+  lean: false,
   font: 'JetBrains Mono',
   codeFont: 'JetBrains Mono',
   keys: { mod: 'alt', binds: {} },
@@ -151,6 +152,7 @@ function claudeArgs(s) {
     '--model', s.model, '--permission-mode', s.permission,
   ];
   if (s.effort) args.push('--effort', s.effort);
+  if (s.lean) args.push('--tools', (s.crew ? crewLib.LEAN_PLANNER : crewLib.LEAN_SOLO).join(','));
   if (s.crew) {
     // Crew mode: helpers as a session-only plugin, planner rules appended to the system prompt.
     const files = crewLib.writeCrewFiles(DATA, settings.crew);
@@ -631,7 +633,7 @@ function expandPath(p) {
   return path.resolve(p);
 }
 
-function newSession({ cwd, title, sessionId, started, crew }) {
+function newSession({ cwd, title, sessionId, started, crew, lean }) {
   const n = sessions.reduce((m, s) => Math.max(m, s.number || 0), 0) + 1;
   const s = {
     id: crypto.randomUUID(),
@@ -643,6 +645,7 @@ function newSession({ cwd, title, sessionId, started, crew }) {
     effort: crew ? settings.crew.planner.effort : settings.effort,
     permission: settings.permission,
     crew: !!crew,
+    lean: lean === undefined ? !!settings.lean : !!lean,
     status: 'idle',
     started: !!started,
     open: true,
@@ -822,7 +825,7 @@ async function route(req, res, url) {
       const cwd = expandPath(body.cwd || settings.defaultCwd || HOME_DIR);
       if (DEMO) fs.mkdirSync(cwd, { recursive: true });
       if (!fs.existsSync(cwd) || !fs.statSync(cwd).isDirectory()) return json(res, 400, { error: `No folder at ${body.cwd}` });
-      const s = newSession({ cwd, title: body.title, crew: !!body.crew });
+      const s = newSession({ cwd, title: body.title, crew: !!body.crew, lean: body.lean });
       if (body.prompt) sendPrompt(s, body.prompt);
       return json(res, 200, publicSession(s));
     }
@@ -859,6 +862,7 @@ async function route(req, res, url) {
       if (typeof body.pinned === 'boolean') patch.pinned = body.pinned;
       let relaunch = false;
       for (const k of ['model', 'effort', 'permission']) if (body[k] && body[k] !== s[k]) { patch[k] = body[k]; relaunch = true; }
+      if (typeof body.lean === 'boolean' && body.lean !== !!s.lean) { patch.lean = body.lean; relaunch = true; }
       if (typeof body.crew === 'boolean' && body.crew !== !!s.crew) {
         patch.crew = body.crew;
         relaunch = true;

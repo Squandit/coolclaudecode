@@ -1,6 +1,6 @@
 {
   "name": "desk",
-  "version": "0.5.4",
+  "version": "0.6.0",
   "description": "A local web UI for Claude Code. Runs on Linux, macOS and Windows.",
   "license": "MIT",
   "private": true,
@@ -10,7 +10,8 @@
   "scripts": {
     "start": "node server.js --open",
     "demo": "node server.js --demo --open",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "bench": "node bench.js"
   },
   "engines": {
     "node": ">=18"

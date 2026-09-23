@@ -701,3 +701,6 @@ kbd.listening { color: var(--hot); border-color: var(--hot); animation: blink 1s
 .font-card span { font-size: 12px; color: var(--fg-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 /* sans interface fonts: headings look better a touch tighter */
 body.font-sans .hero, body.font-sans .head-title, body.font-sans .brand-name { letter-spacing: -0.03em; }
+
+.pill.lean-pill { color: var(--fg-3); }
+.pill.lean-pill.on { color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, var(--raised)); }

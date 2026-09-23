@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0
+
+- **Lean sessions.** A "lean" pill in the header (and a default in Settings) gives Claude only the file and shell tools. Every tool's definition is re-sent on every step, so this shrinks each step's prompt a lot: measured 28.6k → 10.4k tokens for a session and 19.7k → 6.2k for a crew helper. You lose web search, MCP tools and other extras for that session.
+- **Crew helpers are lean by default** (switch in Edit the crew).
+- **Benchmark script.** `npm run bench -- "prompt"` runs the same task as solo, solo-lean, crew and crew-lean, each in its own folder, then prints a comparison of time, cost, tokens, re-reading, helpers, test results and how much of your week it used. `--from <folder>` copies an existing project into each run. Reports are saved in bench-results/.
+
 ## 0.5.4
 
 - Crew helpers show live progress on their row (current step, tokens so far, time).

@@ -417,6 +417,7 @@ const Classic = {
           <div class="set-row"><label>Model</label>${seg('model', MODELS)}</div>
           <div class="set-row"><label>Effort<small>How hard Claude thinks</small></label>${seg('effort', EFFORTS.map((e) => ({ ...e, name: e.id })))}</div>
           <div class="set-row"><label>Permissions<small>What Claude can do without asking</small></label>${seg('permission', PERMS)}</div>
+          <div class="set-row"><label>Lean<small>Only file and shell tools: every step sends a much smaller prompt, so it uses less of your limit. No web search, MCP or other extras.</small></label><button class="switch ${s.lean ? 'on' : ''}" id="lean-default" aria-pressed="${!!s.lean}"></button></div>
           <div class="set-row"><label>Folder<small>Where new sessions open</small></label><input class="text-in" data-text="defaultCwd" value="${esc(s.defaultCwd)}" placeholder="${esc(st.home)}" spellcheck="false"></div>
         </div>
 
@@ -463,6 +464,12 @@ const Classic = {
         $$(fc.dataset.font ? '[data-font]' : '[data-codefont]', main).forEach((x) => x.classList.toggle('sel', x === fc));
         await saveSettings({ [key]: fc.dataset.font || fc.dataset.codefont });
         Terms.retheme();
+        return;
+      }
+      if (e.target.closest('#lean-default')) {
+        const on = !st.settings.lean;
+        $('#lean-default').classList.toggle('on', on);
+        saveSettings({ lean: on });
         return;
       }
       if (e.target.closest('#notify')) {

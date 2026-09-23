@@ -6,6 +6,10 @@ It drives the `claude` CLI you already have installed, so it uses your existing 
 
 **Crew mode** is for bigger jobs. An Opus planner splits your request into tasks and hands each one to the cheapest helper level that can do it well: a Haiku scout for reading, then Sonnet at medium, high and xhigh effort, then Opus at low, medium, high and xhigh. Failed tasks move up a level. You approve the plan first, and the side panel shows every task's level, any escalations, and cost per model. Helpers are loaded as a Claude Code plugin for that session only, so nothing is added to your normal Claude Code setup.
 
+**Lean sessions** give Claude only the file and shell tools, which makes every step's prompt much smaller and so uses less of your limit. Toggle it with the pill in the header.
+
+**Benchmarks.** `npm run bench -- "your prompt"` runs the same task solo, solo-lean, crew and crew-lean side by side and prints the time, cost, tokens and test results for each. Add `--from ~/code/project` to run it on a copy of a real project. It uses your plan like any other session.
+
 Other things it does: a real terminal in the page (Ctrl \`), a git Changes card with diffs, "open" on any file to start your editor on it in a terminal, and a theme switcher (Alt T). [CHANGELOG.md](CHANGELOG.md) has the full list.
 
 There are two layouts. The **classic** layout has a sidebar, one session and an info panel. It comes in Catppuccin Mocha and Latte, Tokyo Night, Gruvbox, Nord, Rosé Pine and Everforest. **Riced** turns the page into a tiling desktop: every open session is its own window, with a waybar-style bar on top and a `desk.conf` you edit live. Switch between them in settings. [IDEAS.md](IDEAS.md) has where it could go next.
@@ -65,6 +69,7 @@ The server only listens on `127.0.0.1`. It rejects requests that don't come from
 | `lib/terminals.js` | Shells over node-pty |
 | `lib/git.js` | git status and diffs |
 | `lib/crew.js` | Crew levels, the helper plugin and the planner's instructions |
+| `bench.js` | Runs one prompt several ways and compares them |
 | `public/js/classic.js` | The classic layout |
 | `public/js/tiling.js` | The riced layout, desk.conf parsing and palettes |
 | `public/js/app.js` | Boot, live updates, switching layouts |

@@ -261,6 +261,7 @@ class Pane {
         <button class="pill model" data-menu="model">${esc(model ? model.name : s.model)}</button>
         <button class="pill" data-menu="effort">${esc(effort ? effort.name : s.effort)}</button>
         <button class="pill perm-${s.permission}" data-menu="perm">${esc(perm ? perm.name : s.permission)}</button>
+        <button class="pill lean-pill ${s.lean ? 'on' : ''}" data-lean title="Lean: only file and shell tools, so every step sends a much smaller prompt. No web search, MCP or other extras.">${s.lean ? 'lean' : 'full tools'}</button>
         <button class="pill crew-pill ${s.crew ? 'on' : ''}" data-menu="crew" title="Crew: a planner hands tasks to helpers at different levels">${ICON.agent}${s.crew ? 'crew' : 'solo'}</button>
         <button class="pill ghost ctx-pill" data-ctx title="Context used">${pct == null ? '' : `<span class="ctx-ring" style="--p:${pct};--c:${levelColor(pct)}"></span>`}${pct == null ? 'context' : pct + '%'}<span class="k">${pct == null ? '' : 'context'}</span></button>
         <button class="icon-btn tray-btn ${trayShown ? 'on' : ''}" data-tray title="Toggle side panel">${ICON.panel}</button>
@@ -268,8 +269,9 @@ class Pane {
         <button class="icon-btn win-close" data-winclose title="Put away (${esc(Keys.label('close'))})">${ICON.x}</button>
       </div>`;
     this.$head.onclick = (e) => {
-      const t = e.target.closest('[data-menu],[data-tray],[data-ctx],[data-side],[data-winclose],.rename');
+      const t = e.target.closest('[data-menu],[data-tray],[data-ctx],[data-side],[data-winclose],[data-lean],.rename');
       if (!t) return;
+      if (t.dataset.lean !== undefined) return this.patch({ lean: !this.s.lean });
       if (t.classList.contains('rename')) return this.startRename();
       if (t.dataset.side !== undefined) return $('#app').classList.add('side-open');
       if (t.dataset.winclose !== undefined) return putAway(this.id);
