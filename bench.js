@@ -319,8 +319,19 @@ async function main() {
   else for (const v of opts.variants) states.push(await runVariant(v, opts, outDir));
 
   const rows = states.map(summarise);
-  console.log('\n' + table(rows) + '\n');
-  fs.writeFileSync(path.join(outDir, 'report.md'), markdown(rows, opts, when));
+  // Side by side, each run's weekly reading includes the others, so only the total means anything.
+  let weekNote = '';
+  if (opts.parallel && rows.length > 1) {
+    const before = states.map((x) => x.usageBefore?.week).filter((v) => v != null);
+    const afterAll = states.map((x) => x.usageAfter?.week).filter((v) => v != null);
+    for (const r of rows) r.week = null;
+    if (before.length && afterAll.length) {
+      const d = (Math.max(...afterAll) - Math.min(...before)) * 100;
+      weekNote = `All runs together used ${d < 0.5 ? 'under 1%' : `about ${Math.round(d)}%`} of your week (it's reported in whole percent, and other use of your plan in the meantime counts too).`;
+    }
+  }
+  console.log('\n' + table(rows) + '\n' + (weekNote ? weekNote + '\n' : ''));
+  fs.writeFileSync(path.join(outDir, 'report.md'), markdown(rows, opts, when) + (weekNote ? weekNote + '\n' : ''));
   fs.writeFileSync(path.join(outDir, 'report.json'), JSON.stringify(rows, null, 2));
   console.log(`Full report: ${path.relative(process.cwd(), path.join(outDir, 'report.md'))}\n`);
 }

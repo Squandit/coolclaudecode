@@ -4,6 +4,7 @@
 
 - **Auto route.** Before each message, Haiku reads it and picks a level: easy (Sonnet medium), normal (Sonnet high), think (Opus medium, for "what should I do" questions) or hard (Opus high). Each pick takes about two seconds and costs about $0.002. The transcript shows what it picked and why, under your message. Short replies like "ok" or "go" skip the router. Once a conversation passes 40k tokens of context, it only steps up, because a switch re-reads the whole conversation without the cache. On by default for new sessions; the model pill in the header turns it off for a session, and so does picking a model yourself. Change which model each level uses in Edit the routes (from that pill, Settings or the Riced launcher).
 - **Bench has an `auto` variant**, so next to solo you can see what the router picks and what it costs.
+- Bench: when variants run side by side, it shows one combined weekly-usage figure instead of a per-run column, since each run's reading included the others.
 - Fixed: after a session's process restarted (a model switch, or the 20-minute idle stop), the next turn's cost counted everything from before the restart again.
 
 ## 0.6.0
