@@ -12,7 +12,7 @@ There are two layouts. The **classic** layout has a sidebar, one session and an 
 
 Workspaces are projects. Windows tile Hyprland-style (dwindle, master or monocle), and the bar shows your usage limits as block meters. Press Alt C to open `desk.conf`, which controls colours (tokyonight, catppuccin, gruvbox, nord, rosepine, everforest), gaps, border gradients, rounding, font, bar position and wallpaper. Every change shows up as you type.
 
-| keys | does |
+| keys (defaults) | does |
 |---|---|
 | Alt Enter | launcher: switch, resume, or start a session (type a folder path or a prompt) |
 | Alt H J K L / arrows | move focus between windows |
@@ -24,7 +24,7 @@ Workspaces are projects. Windows tile Hyprland-style (dwindle, master or monocle
 | Ctrl ` | new terminal window |
 | Alt T | themes (works in both layouts) |
 
-Alt is the modifier because the browser never gets the Super key.
+Alt is the default modifier because the browser never sees the Super key. If your window manager already uses Alt (GlazeWM on Windows does), open Settings → Shortcuts, or "keyboard shortcuts" in the launcher, and switch to Ctrl Alt, Alt Shift or Ctrl Shift. You can also rebind any single shortcut there.
 
 ## Run it
 

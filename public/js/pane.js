@@ -247,7 +247,7 @@ class Pane {
         <button class="pill ghost ctx-pill" data-ctx title="Context used">${pct == null ? '' : `<span class="ctx-ring" style="--p:${pct};--c:${levelColor(pct)}"></span>`}${pct == null ? 'context' : pct + '%'}<span class="k">${pct == null ? '' : 'context'}</span></button>
         <button class="icon-btn tray-btn ${trayShown ? 'on' : ''}" data-tray title="Toggle side panel">${ICON.panel}</button>
         <button class="icon-btn" data-menu="more" title="More">${ICON.more}</button>
-        <button class="icon-btn win-close" data-winclose title="Put away (Alt Q)">${ICON.x}</button>
+        <button class="icon-btn win-close" data-winclose title="Put away (${esc(Keys.label('close'))})">${ICON.x}</button>
       </div>`;
     this.$head.onclick = (e) => {
       const t = e.target.closest('[data-menu],[data-tray],[data-ctx],[data-side],[data-winclose],.rename');

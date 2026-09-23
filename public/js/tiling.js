@@ -1,6 +1,6 @@
 'use strict';
 // The riced layout: a tiling desktop where every open session is a window.
-// Configured through desk.conf, a plain text file you edit in its own window (Alt C).
+// Configured through desk.conf, a plain text file you edit in its own window.
 
 
 const DEFAULT_RICE = `# desk.conf
@@ -237,7 +237,7 @@ const Tiling = {
     if (!el) {
       el = document.createElement('section');
       el.className = 'pane term-win';
-      el.innerHTML = `<div class="pane-in"><header class="head"><span class="win-dot term-dot">${ICON.term}</span><div class="head-left"><div class="head-title"><span class="title-text">${esc(it.v.title)}</span></div><div class="head-meta"><span class="mono where">${esc(it.cwd)}</span></div></div><div class="head-right"><button class="icon-btn win-close" data-killterm title="Close (Alt Q)">${ICON.x}</button></div></header><div class="term-slot"></div></div>`;
+      el.innerHTML = `<div class="pane-in"><header class="head"><span class="win-dot term-dot">${ICON.term}</span><div class="head-left"><div class="head-title"><span class="title-text">${esc(it.v.title)}</span></div><div class="head-meta"><span class="mono where">${esc(it.cwd)}</span></div></div><div class="head-right"><button class="icon-btn win-close" data-killterm title="Close (${esc(Keys.label('close'))})">${ICON.x}</button></div></header><div class="term-slot"></div></div>`;
       el.addEventListener('mousedown', () => { if (st.focusId !== it.id) this.setFocus(it.id, { input: false }); });
       $('[data-killterm]', el).onclick = () => it.v.kill();
       this.termWins.set(it.id, el);
@@ -411,27 +411,29 @@ const Tiling = {
     await api('PATCH', '/sessions/' + id, { open: false }).catch((err) => toast(err.message));
   },
 
-  keys(e) {
+  keys(e, act) {
     if (e.key === 'Escape') {
       if ($('.launcher')) { this.closeFloat('.launcher'); return true; }
       if ($('.cfgwin')) { this.closeFloat('.cfgwin'); return true; }
       return false;
     }
-    if (e.ctrlKey && !e.altKey && e.code === 'Backquote') { e.preventDefault(); this.newTerm(); return true; }
-    if (!e.altKey || e.ctrlKey || e.metaKey) return false;
-    const code = e.code;
-    const run = (fn) => { e.preventDefault(); fn(); return true; };
-    if (code === 'Enter' || code === 'NumpadEnter' || code === 'KeyD' || code === 'KeyN') return run(() => this.openLauncher());
-    if (code === 'KeyQ') return run(() => st.focusId && this.putAway(st.focusId));
-    if (code === 'KeyF') return run(() => { this.fullscreen = !this.fullscreen; this.layout(); this.renderBar(); });
-    if (code === 'KeyC') return run(() => ($('.cfgwin') ? this.closeFloat('.cfgwin') : this.openConfig()));
-    if (code === 'KeyI') return run(() => this.toggleInfo());
-    const dirs = { KeyH: 'left', ArrowLeft: 'left', KeyL: 'right', ArrowRight: 'right', KeyK: 'up', ArrowUp: 'up', KeyJ: 'down', ArrowDown: 'down' };
-    if (dirs[code]) return run(() => this.moveFocus(dirs[code]));
-    const m = code.match(/^Digit([1-9])$/);
-    if (m) return run(() => this.switchWs(+m[1] - 1));
-    return false;
+    if (!act) return false;
+    e.preventDefault();
+    const dirs = ['left', 'down', 'up', 'right'];
+    switch (act.id) {
+      case 'launcher': this.openLauncher(); break;
+      case 'terminal': this.newTerm(); break;
+      case 'close': if (st.focusId) this.putAway(st.focusId); break;
+      case 'fullscreen': this.fullscreen = !this.fullscreen; this.layout(); this.renderBar(); break;
+      case 'config': if ($('.cfgwin')) this.closeFloat('.cfgwin'); else this.openConfig(); break;
+      case 'info': this.toggleInfo(); break;
+      case 'workspace': this.switchWs(act.n - 1); break;
+      default: if (dirs.includes(act.id)) this.moveFocus(act.id); else return false;
+    }
+    return true;
   },
+
+  onKeysChanged() { this.renderBar(); if ($('.splash')) this.sync(); },
 
   switchWs(i) {
     const w = this.workspaces()[i];
@@ -469,7 +471,7 @@ const Tiling = {
     const warn = usageWarning(u);
     bar.innerHTML = `
       <div class="group left">
-        <button class="mod logo" data-launch title="Open something (Alt Enter)">${LOGO}<span>desk</span>${st.demo ? '<small>demo</small>' : ''}</button>
+        <button class="mod logo" data-launch title="Open something (${esc(Keys.label('launcher'))})">${LOGO}<span>desk</span>${st.demo ? '<small>demo</small>' : ''}</button>
         ${wsHtml ? `<span class="wss">${wsHtml}</span>` : ''}
       </div>
       <div class="group center">
@@ -478,12 +480,12 @@ const Tiling = {
       <div class="group right">
         ${u ? meter('5h', u.five_hour, '5-hour limit') + meter('wk', u.seven_day, 'Weekly limit') : mod('dim', 'usage after first message')}
         ${warn ? mod('warn-mod', '!', `title="${esc(warn)}"`) : ''}
-        ${pct != null ? mod('ctx-mod', `<b>ctx</b> ${pct}%`, `data-info style="--c:${levelColor(pct)}" title="Context used (Alt I for details)"`) : ''}
+        ${pct != null ? mod('ctx-mod', `<b>ctx</b> ${pct}%`, `data-info style="--c:${levelColor(pct)}" title="Context used (${esc(Keys.label('info'))} for details)"`) : ''}
         ${fp && fp.m.cost ? mod('cost-mod', fmtCost(fp.m.cost), 'title="This session, API equivalent"') : ''}
-        <button class="mod icon-mod" data-launch title="New session (Alt Enter)">${ICON.plus}</button>
-        <button class="mod icon-mod" data-newterm title="Terminal (Ctrl \`)">${ICON.term}</button>
-        <button class="mod icon-mod" data-themes title="Themes (Alt T)">${ICON.palette}</button>
-        <button class="mod icon-mod" data-config title="desk.conf (Alt C)">${ICON.gear}</button>
+        <button class="mod icon-mod" data-launch title="New session (${esc(Keys.label('launcher'))})">${ICON.plus}</button>
+        <button class="mod icon-mod" data-newterm title="Terminal (${esc(Keys.label('terminal'))})">${ICON.term}</button>
+        <button class="mod icon-mod" data-themes title="Themes (${esc(Keys.label('themes'))})">${ICON.palette}</button>
+        <button class="mod icon-mod" data-config title="desk.conf (${esc(Keys.label('config'))})">${ICON.gear}</button>
         ${mod('clock', `${now.toLocaleDateString([], { weekday: 'short' }).toLowerCase()} <b>${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}</b>`)}
       </div>`;
     bar.onclick = (e) => {
@@ -535,7 +537,7 @@ const Tiling = {
           <div class="swatches">${swatch}</div>
         </div>
       </div>
-      <div class="hint"><kbd>alt</kbd> + <kbd>enter</kbd> open a session &nbsp;·&nbsp; <kbd>alt</kbd> + <kbd>c</kbd> desk.conf &nbsp;·&nbsp; <kbd>alt</kbd> + <kbd>1-9</kbd> workspaces</div>
+      <div class="hint"><kbd>${esc(Keys.label('launcher'))}</kbd> open a session &nbsp;·&nbsp; <kbd>${esc(Keys.label('config'))}</kbd> desk.conf &nbsp;·&nbsp; <kbd>${esc(Keys.label('themes'))}</kbd> themes &nbsp;·&nbsp; <kbd>${esc(Keys.mod().label)} 1-9</kbd> workspaces &nbsp;·&nbsp; <a href="#" data-shortcuts-link>change shortcuts</a></div>
     </div>`;
   },
 
@@ -579,13 +581,14 @@ const Tiling = {
     const looksLikePath = /^(~|\/|\.{1,2}[\\/]|[a-z]:[\\/])/i.test(q);
     if (looksLikePath) items.push({ glyph: '+', label: `new session in ${q}`, sub: 'folder', act: done(() => this.newIn(q)) });
     const here = this.ws || null;
-    items.push({ glyph: '>_', label: `terminal in ${here ? baseName(here) : 'home'}`, sub: 'Ctrl `', act: done(() => this.newTerm()) });
+    items.push({ glyph: '>_', label: `terminal in ${here ? baseName(here) : 'home'}`, sub: Keys.label('terminal'), act: done(() => this.newTerm()) });
     for (const v of Terms.list()) items.push({ glyph: '>_', label: v.title, sub: `switch · terminal · ${baseName(v.meta.cwd)}`, act: done(() => this.setFocus(v.id)) });
     for (const s of this.openSessions()) items.push({ glyph: '◆', label: s.title, sub: `switch · ${baseName(s.cwd)} · ${STATUS_TEXT[s.status] || s.status}`, cls: s.status, act: done(() => this.setFocus(s.id)) });
     for (const p of st.projects) items.push({ glyph: '+', label: `new session in ${p.name}`, sub: p.where, act: done(() => this.newIn(p.where)) });
     for (const h of st.history) items.push({ glyph: '↺', label: h.title, sub: `resume · ${h.where}`, act: done(() => importSession(h.sessionId)) });
-    items.push({ glyph: '◐', label: 'themes', sub: 'Alt T', act: done(() => openThemePicker()) });
-    items.push({ glyph: '✎', label: 'desk.conf', sub: 'Alt C', act: done(() => this.openConfig()) });
+    items.push({ glyph: '◐', label: 'themes', sub: Keys.label('themes'), act: done(() => openThemePicker()) });
+    items.push({ glyph: '✎', label: 'desk.conf', sub: Keys.label('config'), act: done(() => this.openConfig()) });
+    items.push({ glyph: '⌨', label: 'keyboard shortcuts', sub: `modifier: ${Keys.mod().label}`, act: done(() => openShortcuts()) });
     items.push({ glyph: '★', label: "what's new", sub: 'changelog', act: done(() => openChangelog()) });
     const words = q.toLowerCase().split(/\s+/).filter(Boolean);
     let out = looksLikePath ? items : items.filter((it) => words.every((w) => (it.label + ' ' + it.sub).toLowerCase().includes(w)));
@@ -677,7 +680,7 @@ const Tiling = {
     if (!this.infoOpen) return;
     let win = $('.info-win');
     if (!win) {
-      $('#floats').insertAdjacentHTML('beforeend', `<div class="info-win fwin"><div class="fwin-bar"><span class="fwin-title">info</span><span class="dim t"></span><button class="icon-btn" data-close title="Close (Alt I)">${ICON.x}</button></div><div class="info-body"></div></div>`);
+      $('#floats').insertAdjacentHTML('beforeend', `<div class="info-win fwin"><div class="fwin-bar"><span class="fwin-title">info</span><span class="dim t"></span><button class="icon-btn" data-close title="Close (${esc(Keys.label('info'))})">${ICON.x}</button></div><div class="info-body"></div></div>`);
       win = $('.info-win');
       win.onclick = (e) => { if (e.target.closest('[data-close]')) this.closeFloat('.info-win'); };
     }

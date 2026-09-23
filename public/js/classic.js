@@ -65,9 +65,11 @@ const Classic = {
   onProjects() { this.renderSideSoon(); if (this.route.name === 'home') this.renderHomeLists(); },
   onTick() { this.renderUsage(); },
 
-  keys(e) {
-    if (e.altKey && !e.ctrlKey && !e.metaKey && e.code === 'KeyN') { e.preventDefault(); this.newSession(); return true; }
-    if (e.ctrlKey && !e.altKey && e.code === 'Backquote') { e.preventDefault(); this.toggleDock(); return true; }
+  keys(e, act) {
+    const run = (fn) => { e.preventDefault(); fn(); return true; };
+    if (act && act.id === 'launcher') return run(() => this.newSession());
+    if (act && act.id === 'terminal') return run(() => this.toggleDock());
+    if (act && act.id === 'info') return run(() => this.toggleInfo());
     if (e.key === 'Escape') $('#app').classList.remove('side-open', 'tray-open');
     return false;
   },
@@ -184,6 +186,7 @@ const Classic = {
   },
 
   onTermsChanged() { this.renderDock(); },
+  onKeysChanged() { this.renderSide(); if (this.route.name === 'settings') this.renderSettings(); else if (this.route.name === 'home') this.renderHome(); },
 
   // ---------------------------------------------------------------- sidebar
 
@@ -240,7 +243,7 @@ const Classic = {
 
     side.innerHTML = `
       <div class="brand">${LOGO}<span class="brand-name">desk</span>${st.demo ? '<span class="brand-demo">demo</span>' : ''}</div>
-      <button class="new-btn" data-new>${ICON.plus}<span>New session</span><kbd>Alt N</kbd></button>
+      <button class="new-btn" data-new>${ICON.plus}<span>New session</span><kbd>${esc(Keys.label('launcher'))}</kbd></button>
       <div class="side-scroll">
         <div class="side-label"><span>Open</span><button data-home title="Home">${ICON.home}</button></div>
         ${openHtml}
@@ -279,7 +282,7 @@ const Classic = {
     const el = $('#usage');
     if (!el) return;
     const u = st.usage;
-    const settingsBtn = `<span class="usage-btns"><button class="icon-btn" title="Terminal (Ctrl \`)" data-dock>${ICON.term}</button><button class="icon-btn" title="Themes (Alt T)" data-themes>${ICON.palette}</button><button class="icon-btn ${this.route.name === 'settings' ? 'on' : ''}" title="Settings" data-settings>${ICON.gear}</button></span>`;
+    const settingsBtn = `<span class="usage-btns"><button class="icon-btn" title="Terminal (${esc(Keys.label('terminal'))})" data-dock>${ICON.term}</button><button class="icon-btn" title="Themes (${esc(Keys.label('themes'))})" data-themes>${ICON.palette}</button><button class="icon-btn ${this.route.name === 'settings' ? 'on' : ''}" title="Settings" data-settings>${ICON.gear}</button></span>`;
     const meter = (label, w) => {
       if (!w || w.utilization == null) return '';
       const pct = Math.round(w.utilization * 100);
@@ -322,7 +325,7 @@ const Classic = {
             <button class="btn primary" id="start-go">Start <kbd>${/Mac/.test(navigator.platform) ? '⌘' : 'Ctrl'} ⏎</kbd></button>
           </div>
         </div>
-        <div class="tip"><span><kbd>Alt N</kbd> new session</span><span><kbd>/</kbd> commands</span><span><kbd>@</kbd> files</span><span>Sessions keep running when you switch away.</span></div>
+        <div class="tip"><span><kbd>${esc(Keys.label('launcher'))}</kbd> new session</span><span><kbd>${esc(Keys.label('themes'))}</kbd> themes</span><span><kbd>${esc(Keys.label('terminal'))}</kbd> terminal</span><span><kbd>/</kbd> commands</span><span><kbd>@</kbd> files</span><span>Sessions keep running when you switch away.</span></div>
         <div id="home-lists"></div>
       </div></div>`;
     const go = async () => {
@@ -397,7 +400,7 @@ const Classic = {
         <h1 class="hero" style="font-size:38px">Make it yours</h1>
         <p class="lede">Saved to <span class="mono">~/.desk</span> on this machine. Nothing leaves it.</p>
 
-        <div class="set-group"><h2>Look</h2><p>Alt T switches themes from anywhere. Riced swaps the whole layout for a tiling desktop.</p>
+        <div class="set-group"><h2>Look</h2><p>${esc(Keys.label('themes'))} switches themes from anywhere, or use the palette button bottom left. Riced swaps the whole layout for a tiling desktop.</p>
           <div class="themes">
             ${THEMES.map((t) => { const pal = PALETTES[t.palette || 'tokyonight']; return `<button class="theme-card ${s.theme === t.id ? 'sel' : ''}" data-theme="${t.id}"><span class="sw">${themeSwatch(pal).map((c) => `<i style="background:${c}"></i>`).join('')}</span><b>${esc(t.name)}</b><small>${esc(t.note || (pal.light ? 'light' : 'dark'))}</small></button>`; }).join('')}
           </div>
@@ -414,10 +417,14 @@ const Classic = {
           <div class="set-row"><label>CLI path<small>Leave as <span class="mono">claude</span> if it's on your PATH</small></label><div><input class="text-in" data-text="claudePath" value="${esc(s.claudePath)}" spellcheck="false"><span class="ver" id="ver">checking…</span></div></div>
         </div>
 
-        <div class="set-group"><h2>Terminal</h2><p>Ctrl \` opens it. "Open" on a file starts your editor there.</p>
+        <div class="set-group"><h2>Terminal</h2><p>${esc(Keys.label('terminal'))} opens it. "Open" on a file starts your editor there.</p>
           <div class="set-row"><label>Editor<small>Leave empty to use <span class="mono">$EDITOR</span></small></label><input class="text-in" data-text="editor" value="${esc(s.editor || '')}" placeholder="${esc(Terms.info.editor || 'nvim')}" spellcheck="false"></div>
           <div class="set-row"><label>Shell<small>Leave empty for your login shell</small></label><input class="text-in" data-text="shell" value="${esc(s.shell || '')}" placeholder="${esc(Terms.info.shell || '')}" spellcheck="false"></div>
           ${Terms.info.available ? '' : `<div class="set-row"><label>Status</label><span style="color:var(--bad)">Off: node-pty is ${esc(Terms.info.error || 'missing')}. Run <span class="mono">npm install</span> and restart.</span></div>`}
+        </div>
+
+        <div class="set-group"><h2>Shortcuts</h2><p>The modifier is <b>${esc(Keys.mod().label)}</b>. If your window manager (GlazeWM, i3, Hyprland…) already uses it, pick another or rebind single keys.</p>
+          <button class="btn" data-shortcuts>Edit shortcuts</button>
         </div>
 
         <div class="set-group"><h2>What's new</h2><p>What changed in desk, newest first.</p>
@@ -447,6 +454,7 @@ const Classic = {
         return;
       }
       if (e.target.closest('[data-news]')) openChangelog();
+      if (e.target.closest('[data-shortcuts]')) openShortcuts();
       if (e.target.closest('[data-side]')) $('#app').classList.add('side-open');
     };
     for (const input of $$('[data-text]', main)) {

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.1
+
+- **Shortcuts you can change.** Pick the modifier (Alt, Ctrl Alt, Alt Shift or Ctrl Shift) so desk stops fighting GlazeWM, i3 or Hyprland, and rebind any shortcut by pressing the new keys. Settings → Shortcuts, or "keyboard shortcuts" in the Riced launcher. AltGr typing never triggers a shortcut.
+
 ## 0.4.0
 
 - **Terminal.** A real shell in the page, in the session's folder. Ctrl ` opens it as a dock under the session in the classic layout, or as a tiled window in Riced. Tabs, drag to resize, and it survives a page reload. Runs on Linux, macOS and Windows (PowerShell).

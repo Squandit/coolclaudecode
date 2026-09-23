@@ -307,3 +307,130 @@ function parseUnified(text) {
   }
   return hunks;
 }
+
+// ------------------------------------------------------------------ keyboard shortcuts
+
+// Every shortcut is "mod+Key" (mod is whatever you picked in Shortcuts) or a full
+// combo like "ctrl+Backquote". Keys use KeyboardEvent.code, so layouts don't matter.
+const KEY_MODS = {
+  alt: { label: 'Alt', ctrl: false, alt: true, shift: false },
+  'ctrl+alt': { label: 'Ctrl Alt', ctrl: true, alt: true, shift: false },
+  'alt+shift': { label: 'Alt Shift', ctrl: false, alt: true, shift: true },
+  'ctrl+shift': { label: 'Ctrl Shift', ctrl: true, alt: false, shift: true },
+};
+const KEY_ACTIONS = [
+  { id: 'launcher', label: 'New session (classic) · launcher (Riced)', def: 'mod+Enter' },
+  { id: 'themes', label: 'Themes', def: 'mod+KeyT' },
+  { id: 'terminal', label: 'Terminal', def: 'ctrl+Backquote' },
+  { id: 'info', label: 'Side panel / info', def: 'mod+KeyI' },
+  { id: 'close', label: 'Close window (Riced)', def: 'mod+KeyQ' },
+  { id: 'fullscreen', label: 'Fullscreen window (Riced)', def: 'mod+KeyF' },
+  { id: 'config', label: 'desk.conf (Riced)', def: 'mod+KeyC' },
+  { id: 'left', label: 'Focus left (Riced)', def: 'mod+KeyH' },
+  { id: 'down', label: 'Focus down (Riced)', def: 'mod+KeyJ' },
+  { id: 'up', label: 'Focus up (Riced)', def: 'mod+KeyK' },
+  { id: 'right', label: 'Focus right (Riced)', def: 'mod+KeyL' },
+];
+
+const Keys = {
+  get cfg() { return (st.settings && st.settings.keys) || { mod: 'alt', binds: {} }; },
+  mod() { return KEY_MODS[this.cfg.mod] || KEY_MODS.alt; },
+  combo(id) { return (this.cfg.binds && this.cfg.binds[id]) || byId(KEY_ACTIONS, id).def; },
+
+  // Expand a combo into the exact modifiers and code it needs.
+  parse(combo) {
+    const parts = combo.split('+');
+    const code = parts.pop();
+    const want = { ctrl: false, alt: false, shift: false, meta: false };
+    for (const p of parts) {
+      if (p === 'mod') { const m = this.mod(); want.ctrl ||= m.ctrl; want.alt ||= m.alt; want.shift ||= m.shift; }
+      else want[p] = true;
+    }
+    return { want, code };
+  },
+
+  mods(e) { return { ctrl: e.ctrlKey, alt: e.altKey, shift: e.shiftKey, meta: e.metaKey }; },
+  same(a, b) { return a.ctrl === b.ctrl && a.alt === b.alt && a.shift === b.shift && a.meta === b.meta; },
+
+  // Which action (if any) this keydown is. Workspaces are mod + 1-9, arrows mirror hjkl.
+  action(e) {
+    if (e.getModifierState && e.getModifierState('AltGraph')) return null; // AltGr is for typing
+    const have = this.mods(e);
+    for (const a of KEY_ACTIONS) {
+      const { want, code } = this.parse(this.combo(a.id));
+      if (code === e.code && this.same(want, have)) return { id: a.id };
+    }
+    const modOnly = this.parse('mod+x').want;
+    if (this.same(modOnly, have)) {
+      const d = e.code.match(/^Digit([1-9])$/);
+      if (d) return { id: 'workspace', n: +d[1] };
+      const arrows = { ArrowLeft: 'left', ArrowDown: 'down', ArrowUp: 'up', ArrowRight: 'right' };
+      if (arrows[e.code]) return { id: arrows[e.code] };
+    }
+    return null;
+  },
+
+  keyName(code) {
+    return code.replace(/^Key/, '').replace(/^Digit/, '').replace('Backquote', '`').replace('Enter', '⏎').replace(/^Arrow/, '').replace('Backslash', '\\').replace('Slash', '/').replace('Semicolon', ';').replace('Comma', ',').replace('Period', '.').replace('Minus', '-').replace('Equal', '=').replace('BracketLeft', '[').replace('BracketRight', ']').replace('Quote', "'");
+  },
+  label(id) {
+    const combo = typeof id === 'string' && id.includes('+') ? id : this.combo(id);
+    const parts = combo.split('+');
+    const code = parts.pop();
+    const mods = parts.map((p) => (p === 'mod' ? this.mod().label : p[0].toUpperCase() + p.slice(1)));
+    return [...mods, this.keyName(code)].join(' ');
+  },
+
+  // Turn a keydown into a combo string, preferring "mod+" when the modifiers match yours.
+  fromEvent(e) {
+    if (['Control', 'Alt', 'Shift', 'Meta', 'AltGraph'].includes(e.key)) return null;
+    const have = this.mods(e);
+    if (!have.ctrl && !have.alt && !have.meta) return null; // needs a real modifier
+    if (this.same(this.parse('mod+x').want, have)) return 'mod+' + e.code;
+    return [have.ctrl && 'ctrl', have.alt && 'alt', have.shift && 'shift', have.meta && 'meta', e.code].filter(Boolean).join('+');
+  },
+};
+
+function openShortcuts() {
+  const draw = () => {
+    const k = Keys.cfg;
+    return `<div class="keys-pane">
+      <div class="keys-mod">
+        <div><b>Modifier</b><small>Pick one your window manager leaves alone. GlazeWM, i3 and friends usually grab Alt, so try Ctrl Alt.</small></div>
+        <div class="seg">${Object.entries(KEY_MODS).map(([id, m]) => `<button data-mod="${id}" class="${k.mod === id ? 'sel' : ''}">${m.label}</button>`).join('')}</div>
+      </div>
+      <table class="table keys-table"><tbody>
+        ${KEY_ACTIONS.map((a) => `<tr><td>${esc(a.label)}</td><td class="acts"><button class="kbd-btn" data-bind="${a.id}"><kbd>${esc(Keys.label(a.id))}</kbd></button>${k.binds && k.binds[a.id] ? `<button class="link-btn" data-reset="${a.id}">reset</button>` : ''}</td></tr>`).join('')}
+        <tr><td>Workspace 1 to 9 (Riced)</td><td class="acts"><kbd>${esc(Keys.mod().label)} 1-9</kbd></td></tr>
+      </tbody></table>
+      <p class="keys-note">Click a shortcut, then press the new keys. Esc cancels.</p>
+    </div>`;
+  };
+  const win = openModal({ title: 'Keyboard shortcuts', sub: 'saved on this machine', cls: 'keys-modal', body: draw() });
+  const body = $('.modal-body', win);
+  const save = async (keys) => {
+    await saveSettings({ keys }, { apply: false });
+    body.innerHTML = draw();
+    L && L.onKeysChanged && L.onKeysChanged();
+  };
+  body.onclick = (e) => {
+    const m = e.target.closest('[data-mod]');
+    if (m) return save({ ...Keys.cfg, mod: m.dataset.mod });
+    const r = e.target.closest('[data-reset]');
+    if (r) { const binds = { ...Keys.cfg.binds }; delete binds[r.dataset.reset]; return save({ ...Keys.cfg, binds }); }
+    const b = e.target.closest('[data-bind]');
+    if (!b) return;
+    b.innerHTML = '<kbd class="listening">press keys…</kbd>';
+    const onKey = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (ev.key === 'Escape') { cleanup(); body.innerHTML = draw(); return; }
+      const combo = Keys.fromEvent(ev);
+      if (!combo) return;
+      cleanup();
+      save({ ...Keys.cfg, binds: { ...Keys.cfg.binds, [b.dataset.bind]: combo } });
+    };
+    const cleanup = () => window.removeEventListener('keydown', onKey, true);
+    window.addEventListener('keydown', onKey, true);
+  };
+}

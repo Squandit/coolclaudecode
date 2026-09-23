@@ -55,6 +55,7 @@ const DEFAULT_SETTINGS = {
   rice: '',
   editor: '',
   shell: '',
+  keys: { mod: 'alt', binds: {} },
 };
 let settings = { ...DEFAULT_SETTINGS, ...readJSON('settings.json', {}) };
 let sessions = readJSON('sessions.json', []);
@@ -648,6 +649,9 @@ async function route(req, res, url) {
     const body = await readBody(req);
     for (const k of Object.keys(DEFAULT_SETTINGS)) if (body[k] !== undefined) settings[k] = body[k];
     if (typeof settings.rice !== 'string' || settings.rice.length > 50000) settings.rice = '';
+    const k = settings.keys;
+    if (!k || typeof k !== 'object' || !['alt', 'ctrl+alt', 'alt+shift', 'ctrl+shift'].includes(k.mod)) settings.keys = { mod: 'alt', binds: {} };
+    else settings.keys = { mod: k.mod, binds: Object.fromEntries(Object.entries(k.binds || {}).filter(([a, c]) => /^\w{1,20}$/.test(a) && typeof c === 'string' && c.length < 60)) };
     writeJSON('settings.json', settings);
     broadcast({ kind: 'settings', settings });
     return json(res, 200, settings);

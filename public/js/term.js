@@ -117,10 +117,10 @@ class TermView {
     // Let the app's own shortcuts through instead of sending them to the shell.
     this.term.attachCustomKeyEventHandler((e) => {
       if (e.type !== 'keydown') return true;
-      if (e.ctrlKey && e.code === 'Backquote') return false;
-      if (e.altKey && !e.ctrlKey && e.code === 'KeyT') return false;
-      if (document.body.classList.contains('layout-tiling') && e.altKey && !e.ctrlKey && /^(Digit[1-9]|Key[HJKLQFCIDN]|Enter|Arrow\w+)$/.test(e.code)) return false;
-      return true;
+      const act = Keys.action(e);
+      if (!act) return true;
+      if (document.body.classList.contains('layout-tiling')) return false;
+      return !['themes', 'terminal', 'launcher', 'info'].includes(act.id);
     });
     // Draw the scrollback so far, then anything that arrived while we fetched it, without repeats.
     const d = await api('GET', `/terms/${this.id}/buffer`).catch(() => null);

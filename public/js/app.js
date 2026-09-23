@@ -15,11 +15,15 @@ async function boot() {
   window.addEventListener('hashchange', () => L && L.go());
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && closeModal()) { e.preventDefault(); return; }
-    if (e.altKey && !e.ctrlKey && !e.metaKey && e.code === 'KeyT') { e.preventDefault(); if (!$('.theme-modal')) openThemePicker(); return; }
-    if (L && L.keys(e)) return;
+    const act = Keys.action(e);
+    if (act && act.id === 'themes') { e.preventDefault(); if (!$('.theme-modal')) openThemePicker(); return; }
+    if (L && L.keys(e, act)) return;
     if (e.key === 'Escape') closeMenu();
   });
-  document.addEventListener('click', (e) => { if (!e.target.closest('.menu, [data-menu]')) closeMenu(); });
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.menu, [data-menu]')) closeMenu();
+    if (e.target.closest('[data-shortcuts-link]')) { e.preventDefault(); openShortcuts(); }
+  });
   window.addEventListener('resize', closeMenu);
   setInterval(() => { L && L.onTick(); refreshAgos(); }, 30000);
 
