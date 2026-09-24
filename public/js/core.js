@@ -13,6 +13,9 @@ const PALETTES = {
   gruvbox: { crust: '#141617', mantle: '#1d2021', base: '#282828', s0: '#3c3836', s1: '#504945', line: '#32302f', fg: '#ebdbb2', fg2: '#d5c4a1', fg3: '#928374', accent: '#fabd2f', accent2: '#83a598', ok: '#b8bb26', warn: '#fabd2f', hot: '#fe8019', bad: '#fb4934', info: '#83a598' , blue: '#83a598', magenta: '#d3869b', cyan: '#8ec07c' },
   nord: { crust: '#1f232b', mantle: '#242933', base: '#2e3440', s0: '#3b4252', s1: '#4c566a', line: '#373e4c', fg: '#eceff4', fg2: '#d8dee9', fg3: '#7b88a1', accent: '#88c0d0', accent2: '#b48ead', ok: '#a3be8c', warn: '#ebcb8b', hot: '#d08770', bad: '#bf616a', info: '#81a1c1' , blue: '#81a1c1', magenta: '#b48ead', cyan: '#88c0d0' },
   rosepine: { crust: '#111019', mantle: '#16141f', base: '#191724', s0: '#26233a', s1: '#403d52', line: '#21202e', fg: '#e0def4', fg2: '#908caa', fg3: '#6e6a86', accent: '#c4a7e7', accent2: '#ebbcba', ok: '#9ccfd8', warn: '#f6c177', hot: '#ebbcba', bad: '#eb6f92', info: '#3e8fb0' , blue: '#31748f', magenta: '#c4a7e7', cyan: '#9ccfd8' },
+  // Warm greys and clay, close to the Claude apps.
+  clay: { crust: '#1f1e1d', mantle: '#1a1918', base: '#262624', s0: '#30302e', s1: '#3e3d39', line: '#353431', fg: '#f5f4ef', fg2: '#c3c0b6', fg3: '#8f8c84', accent: '#d97757', accent2: '#e0a37b', ok: '#8fb573', warn: '#dcb25e', hot: '#d97757', bad: '#e2685e', info: '#76a4d6', blue: '#76a4d6', magenta: '#c89bd9', cyan: '#7cbfb4' },
+  claylight: { light: true, crust: '#f0eee6', mantle: '#f5f4ed', base: '#faf9f5', s0: '#ebe9e0', s1: '#dcd9ce', line: '#e5e2d8', fg: '#1f1e1d', fg2: '#4a4944', fg3: '#83817a', accent: '#c6613f', accent2: '#b0714c', ok: '#4f8a3a', warn: '#b07d1c', hot: '#c6613f', bad: '#c43d33', info: '#3a6ea5', blue: '#3a6ea5', magenta: '#8a4fa6', cyan: '#2c8076' },
   everforest: { crust: '#1e2326', mantle: '#232a2e', base: '#2d353b', s0: '#343f44', s1: '#475258', line: '#2e383c', fg: '#d3c6aa', fg2: '#9da9a0', fg3: '#7a8478', accent: '#a7c080', accent2: '#7fbbb3', ok: '#a7c080', warn: '#dbbc7f', hot: '#e69875', bad: '#e67e80', info: '#7fbbb3' , blue: '#7fbbb3', magenta: '#d699b6', cyan: '#83c092' },
 };
 
@@ -20,6 +23,8 @@ const PALETTES = {
 // or 'tiling' (every open session and terminal is a window). Riced takes its
 // palette from desk.conf.
 const THEMES = [
+  { id: 'app', name: 'App', layout: 'app', palette: 'clay', note: 'looks like the Claude Code app' },
+  { id: 'app-light', name: 'App Light', layout: 'app', palette: 'claylight', note: 'the same, light' },
   { id: 'mocha', name: 'Catppuccin Mocha', layout: 'classic', palette: 'catppuccin' },
   { id: 'latte', name: 'Catppuccin Latte', layout: 'classic', palette: 'latte' },
   { id: 'tokyonight', name: 'Tokyo Night', layout: 'classic', palette: 'tokyonight' },
@@ -299,8 +304,25 @@ const ICON = {
   refresh: I('<path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/>'),
   news: I('<path d="M4 5h13v14H6a2 2 0 0 1-2-2zM17 9h3v8a2 2 0 0 1-2 2"/><path d="M8 9h5M8 13h5"/>'),
   check: I('<path d="m5 12 4.5 4.5L19 7"/>', 'stroke-width="3"'),
+  sidebar: I('<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/>'),
+  back: I('<path d="M19 12H5M11 18l-6-6 6-6"/>'),
+  fwd: I('<path d="M5 12h14M13 6l6 6-6 6"/>'),
+  down: I('<path d="m6 9 6 6 6-6"/>'),
+  copy: I('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/>'),
+  send: I('<path d="M12 19V5M6 11l6-6 6 6"/>', 'stroke-width="2.6"'),
+  stop: '<svg width="12" height="12" viewBox="0 0 12 12"><rect x="1" y="1" width="10" height="10" rx="2" fill="currentColor"/></svg>',
+  route: I('<path d="M6 3v12a3 3 0 0 0 3 3h9M15 15l3 3-3 3"/><circle cx="6" cy="3" r="1"/>'),
   brain: I('<path d="M9 4a3 3 0 0 0-3 3 3 3 0 0 0-2 5 3 3 0 0 0 2 5 3 3 0 0 0 6 1V5a2 2 0 0 0-3-1zM15 4a3 3 0 0 1 3 3 3 3 0 0 1 2 5 3 3 0 0 1-2 5 3 3 0 0 1-6 1"/>'),
 };
+// The spinner in the App layout: a many-armed spark.
+const SPARK = `<svg class="spark" viewBox="0 0 64 64"><g stroke="var(--claude)" stroke-width="6" stroke-linecap="round">${[0, 22.5, 45, 67.5, 90, 112.5, 135, 157.5].map((a, i) => `<path d="M32 ${i % 2 ? 14 : 8}v${i % 2 ? 36 : 48}" transform="rotate(${a} 32 32)"/>`).join('')}</g></svg>`;
+function isApp() { return document.body.classList.contains('layout-app'); }
+// "claude-opus-5-5" -> "Opus 5.5", "claude-haiku-4-5-20251001" -> "Haiku 4.5"
+function modelLabel(full, fallback) {
+  const m = String(full || '').match(/(opus|sonnet|haiku|fable|mythos)-(\d+)(?:-(\d{1,2}))?(?!\d)/i);
+  if (!m) return fallback || String(full || '');
+  return m[1][0].toUpperCase() + m[1].slice(1).toLowerCase() + ' ' + m[2] + (m[3] ? '.' + m[3] : '');
+}
 const LOGO = `<svg class="brand-mark" viewBox="0 0 64 64"><g stroke="var(--claude)" stroke-width="7" stroke-linecap="round"><path d="M32 10v44M10 32h44M16.4 16.4l31.2 31.2M47.6 16.4 16.4 47.6"/></g><circle cx="32" cy="32" r="7" fill="var(--accent)"/></svg>`;
 
 // ------------------------------------------------------------------ popups

@@ -1,6 +1,6 @@
 {
   "name": "desk",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "A local web UI for Claude Code. Runs on Linux, macOS and Windows.",
   "license": "MIT",
   "private": true,

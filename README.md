@@ -14,7 +14,7 @@ It drives the `claude` CLI you already have installed, so it uses your existing 
 
 Other things it does: a real terminal in the page (Ctrl \`), a git Changes card with diffs, "open" on any file to start your editor on it in a terminal, and a theme switcher (Alt T). [CHANGELOG.md](CHANGELOG.md) has the full list.
 
-There are two layouts. The **classic** layout has a sidebar, one session and an info panel. It comes in Catppuccin Mocha and Latte, Tokyo Night, Gruvbox, Nord, Rosé Pine and Everforest. **Riced** turns the page into a tiling desktop: every open session is its own window, with a waybar-style bar on top and a `desk.conf` you edit live. Switch between them in settings. [IDEAS.md](IDEAS.md) has where it could go next.
+There are three layouts. **App** looks like the Claude Code app, with desk's extras (usage bars, crew, lean, cost, auto route) tucked where the app puts its own controls. The **classic** layout has a sidebar, one session and an info panel. It comes in Catppuccin Mocha and Latte, Tokyo Night, Gruvbox, Nord, Rosé Pine and Everforest. **Riced** turns the page into a tiling desktop: every open session is its own window, with a waybar-style bar on top and a `desk.conf` you edit live. Switch between them in settings. [IDEAS.md](IDEAS.md) has where it could go next.
 
 ### Riced
 
@@ -78,6 +78,7 @@ The server only listens on `127.0.0.1`. It rejects requests that don't come from
 | `public/js/app.js` | Boot, live updates, switching layouts |
 | `public/app.css` | Shared components, colours come from the theme |
 | `public/themes/riced.css` | The tiling desktop's styling |
+| `public/themes/app.css` | The App layout's styling |
 
 ## Adding a theme
 

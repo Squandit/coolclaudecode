@@ -45,16 +45,23 @@ function setThemeVars(css) {
 function applyTheme(previewId) {
   const theme = byId(THEMES, previewId || st.settings.theme) || THEMES[0];
   const next = theme.layout === 'tiling' ? Tiling : Classic;
+  const app = theme.layout === 'app';
+  const appChanged = app !== document.body.classList.contains('layout-app');
   document.body.classList.toggle('layout-tiling', next === Tiling);
   document.body.classList.toggle('layout-classic', next === Classic);
+  document.body.classList.toggle('layout-app', app);
   if (next === Tiling) Tiling.applyConfig(st.settings.rice || DEFAULT_RICE);
   else {
-    const ui = st.settings.font || 'JetBrains Mono', code = st.settings.codeFont || 'JetBrains Mono';
+    const picked = st.settings.font || 'JetBrains Mono', code = st.settings.codeFont || 'JetBrains Mono';
+    // The App layout is a sans serif layout: a monospace pick falls back to Inter there.
+    const ui = app && (FONTS.find((f) => f.name === picked) || { mono: true }).mono ? 'Inter' : picked;
     loadFont(ui); loadFont(code);
     setThemeVars(`:root {${paletteVars(PALETTES[theme.palette] || PALETTES.catppuccin, { font: fontStack(ui), mono: fontStack(code, true) })}}`);
     document.body.classList.toggle('font-sans', !(FONTS.find((f) => f.name === ui) || { mono: true }).mono);
   }
   Terms.retheme();
+  // Classic and App share one layout object but render differently, so start it over.
+  if (L === next && appChanged && L === Classic) { L.leave(); L.enter(); return; }
   if (L === next) return;
   if (L) L.leave();
   L = next;

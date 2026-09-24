@@ -8,7 +8,9 @@ const Classic = {
   enter() {
     $('#app').hidden = false;
     const app = $('#app');
-    if (!store.get('tray', true)) app.classList.add('no-tray');
+    app.classList.toggle('side-collapsed', isApp() && store.get('sideCollapsed', false));
+    // The App layout starts with the side panel closed, like the app; each layout remembers its own.
+    app.classList.toggle('no-tray', !store.get(this.trayKey(), !isApp()));
     $('#scrim').onclick = () => app.classList.remove('side-open', 'tray-open');
     this.renderSide();
     this.go();
@@ -61,7 +63,7 @@ const Classic = {
     this.renderSide();
     if (this.route.id === id) location.hash = '#/';
   },
-  onUsage() { this.renderUsage(); },
+  onUsage() { this.renderUsage(); focusedPane()?.renderBanner(); },
   onProjects() { this.renderSideSoon(); if (this.route.name === 'home') this.renderHomeLists(); },
   onTick() { this.renderUsage(); },
 
@@ -88,10 +90,12 @@ const Classic = {
     if (st.focusId === id) location.hash = '#/';
   },
 
+  trayKey() { return isApp() ? 'trayApp' : 'tray'; },
+
   toggleInfo() {
     const app = $('#app');
     if (window.matchMedia('(max-width: 1180px)').matches) app.classList.toggle('tray-open');
-    else { app.classList.toggle('no-tray'); store.set('tray', !app.classList.contains('no-tray')); }
+    else { app.classList.toggle('no-tray'); store.set(this.trayKey(), !app.classList.contains('no-tray')); }
     focusedPane()?.renderHead();
   },
 
@@ -198,6 +202,7 @@ const Classic = {
   },
 
   renderSide() {
+    if (isApp()) return this.renderAppSide();
     const side = $('#side');
     const scrollTop = $('.side-scroll', side)?.scrollTop || 0;
     const open = sessionsSorted().filter((s) => s.open !== false);
@@ -278,10 +283,145 @@ const Classic = {
     };
   },
 
+  // ---------------------------------------------------------------- App layout sidebar
+
+  sideSearch: '',
+  appShowAll: new Set(),
+
+  renderAppSide() {
+    const side = $('#side');
+    const scrollTop = $('.side-scroll', side)?.scrollTop || 0;
+    const q = this.sideSearch.trim().toLowerCase();
+    const hit = (t) => !q || String(t || '').toLowerCase().includes(q);
+    const currentId = st.focusId;
+
+    // One group per folder: desk's sessions first, then Claude Code sessions you
+    // haven't opened in desk yet. Most recently used folder on top.
+    const groups = new Map();
+    const group = (cwd, name, where) => {
+      if (!groups.has(cwd)) groups.set(cwd, { cwd, name, where, updated: 0, mine: [], theirs: [] });
+      return groups.get(cwd);
+    };
+    for (const s of sessionsSorted()) {
+      const g = group(s.cwd, baseName(s.cwd), prettyish(s.cwd));
+      g.mine.push(s);
+      g.updated = Math.max(g.updated, s.updatedAt || 0);
+    }
+    for (const p of st.projects) {
+      const g = group(p.cwd, p.name, p.where);
+      g.where = p.where;
+      g.updated = Math.max(g.updated, p.updatedAt || 0);
+    }
+    for (const h of st.history) if (groups.has(h.cwd)) groups.get(h.cwd).theirs.push(h);
+
+    let html = '';
+    for (const g of [...groups.values()].sort((a, b) => b.updated - a.updated).slice(0, 16)) {
+      const mine = g.mine.filter((s) => hit(s.title));
+      const theirs = g.theirs.filter((h) => hit(h.title));
+      if (q && !mine.length && !theirs.length && !hit(g.name)) continue;
+      const all = this.appShowAll.has(g.cwd) || q;
+      const limit = all ? 50 : 5;
+      const rows = [
+        ...mine.map((s) => ({ s })),
+        ...theirs.slice(0, mine.length ? 2 : 3).map((h) => ({ h })),
+      ];
+      html += `<div class="as-group">
+        <div class="as-gname"><span title="${esc(g.where || g.cwd)}">${esc(g.name)}</span><button class="icon-btn" data-newin="${esc(g.where || g.cwd)}" title="New session in ${esc(g.name)}">${ICON.plus}</button></div>`;
+      for (const r of rows.slice(0, limit)) {
+        if (r.s) {
+          const s = r.s;
+          html += `<div class="as-item ${s.id === currentId ? 'active' : ''} ${s.open === false ? 'away' : ''}" role="button" tabindex="0" data-open="${s.id}" title="${esc(sessionSub(s).text)}">
+            <span class="as-dot ${s.status}"></span><span class="as-t">${esc(s.title)}</span>
+            ${s.open === false ? '' : `<button class="s-close" title="Put away (keeps history)" data-close="${s.id}">${ICON.x}</button>`}
+          </div>`;
+        } else {
+          html += `<div class="as-item theirs" role="button" tabindex="0" data-import="${r.h.sessionId}" title="From Claude Code · ${esc(ago(r.h.updatedAt))}"><span class="as-dot idle"></span><span class="as-t">${esc(r.h.title)}</span></div>`;
+        }
+      }
+      if (rows.length > limit) html += `<button class="as-more" data-showall="${esc(g.cwd)}">Show ${rows.length - limit} more</button>`;
+      html += `</div>`;
+    }
+    if (!html) html = `<div class="empty-note">${q ? 'Nothing matches.' : 'Folders you use Claude Code in show up here.'}</div>`;
+
+    const settingsOn = this.route.name === 'settings';
+    side.innerHTML = `
+      <div class="as-head">
+        <button class="icon-btn" data-collapse title="Hide sidebar">${ICON.sidebar}</button>
+        <button class="icon-btn" data-back title="Back">${ICON.back}</button>
+        <button class="icon-btn" data-fwd title="Forward">${ICON.fwd}</button>
+        ${st.demo ? '<span class="brand-demo">demo</span>' : ''}
+      </div>
+      <label class="as-search">${ICON.search}<input id="as-search" placeholder="Search" spellcheck="false" value="${esc(this.sideSearch)}"></label>
+      <nav class="as-nav">
+        <button data-new>${ICON.plus}<span>New session</span><kbd>${esc(Keys.label('launcher'))}</kbd></button>
+        <button data-dock>${ICON.term}<span>Terminal</span><kbd>${esc(Keys.label('terminal'))}</kbd></button>
+        <button data-crew-edit>${ICON.agent}<span>Crew</span></button>
+        <button data-routes-edit>${ICON.route}<span>Auto route</span></button>
+        <button data-themes>${ICON.palette}<span>Themes</span><kbd>${esc(Keys.label('themes'))}</kbd></button>
+      </nav>
+      <div class="side-scroll">${html}</div>
+      <div class="usage" id="usage"></div>
+      <div class="as-foot">
+        <span class="as-avatar">${LOGO}</span>
+        <span class="as-who"><b>desk</b><small>${esc(st.cliVersion || 'Claude Code')}${st.demo ? ' · demo' : ''}</small></span>
+        <button class="icon-btn ${settingsOn ? 'on' : ''}" data-settings title="Settings">${ICON.gear}</button>
+      </div>`;
+    $('.side-scroll', side).scrollTop = scrollTop;
+    this.renderUsage();
+    if (!st.cliVersion && !this.versionAsked) {
+      this.versionAsked = true;
+      api('GET', '/version').then(({ version }) => { if (version) { st.cliVersion = 'Claude Code ' + version.replace(/\s*\(.*\)$/, ''); if (isApp()) this.renderSideSoon(); } }).catch(() => {});
+    }
+
+    const search = $('#as-search', side);
+    search.oninput = () => {
+      this.sideSearch = search.value;
+      const pos = search.selectionStart;
+      this.renderAppSide();
+      const again = $('#as-search', side);
+      again.focus();
+      again.selectionStart = again.selectionEnd = pos;
+    };
+    search.onkeydown = (e) => { if (e.key === 'Escape') { this.sideSearch = ''; this.renderAppSide(); } };
+
+    side.onclick = async (e) => {
+      const t = e.target.closest('[data-open],[data-close],[data-new],[data-newin],[data-import],[data-settings],[data-themes],[data-dock],[data-collapse],[data-back],[data-fwd],[data-showall]');
+      if (!t) return;
+      if (t.dataset.close) { e.stopPropagation(); this.putAway(t.dataset.close); }
+      else if (t.dataset.open) location.hash = '#/s/' + t.dataset.open;
+      else if (t.dataset.new !== undefined) this.newSession();
+      else if (t.dataset.newin) this.newSession(t.dataset.newin);
+      else if (t.dataset.import) importSession(t.dataset.import);
+      else if (t.dataset.settings !== undefined) location.hash = this.route.name === 'settings' ? '#/' : '#/settings';
+      else if (t.dataset.themes !== undefined) openThemePicker();
+      else if (t.dataset.dock !== undefined) this.toggleDock();
+      else if (t.dataset.collapse !== undefined) toggleSidebar();
+      else if (t.dataset.back !== undefined) history.back();
+      else if (t.dataset.fwd !== undefined) history.forward();
+      else if (t.dataset.showall) { this.appShowAll.add(t.dataset.showall); this.renderAppSide(); }
+    };
+    side.onkeydown = (e) => {
+      const t = e.target.closest('[data-open],[data-import]');
+      if (t && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); t.click(); }
+    };
+  },
+
   renderUsage() {
     const el = $('#usage');
     if (!el) return;
     const u = st.usage;
+    if (isApp()) {
+      // Compact: two thin bars, the extra the app doesn't show.
+      const bar = (label, w) => {
+        if (!w || w.utilization == null) return '';
+        const pct = Math.round(w.utilization * 100);
+        return `<div class="au-row" title="${esc(w.resetsAt ? resetAt(w.resetsAt) : '')}"><span class="au-name">${label}</span><span class="au-bar"><i style="width:${Math.min(100, pct)}%;background:${levelColor(pct)}"></i></span><span class="au-pct">${pct}%</span></div>`;
+      };
+      el.innerHTML = u && (u.five_hour || u.seven_day)
+        ? `${bar('5h', u.five_hour)}${bar('Week', u.seven_day)}<div class="au-foot">${u.seven_day && u.seven_day.resetsAt ? 'Week ' + esc(resetAt(u.seven_day.resetsAt)) : ''}</div>`
+        : `<div class="au-foot">Usage limits show up after your first message.</div>`;
+      return;
+    }
     const settingsBtn = `<span class="usage-btns"><button class="icon-btn" title="Terminal (${esc(Keys.label('terminal'))})" data-dock>${ICON.term}</button><button class="icon-btn" title="Themes (${esc(Keys.label('themes'))})" data-themes>${ICON.palette}</button><button class="icon-btn ${this.route.name === 'settings' ? 'on' : ''}" title="Settings" data-settings>${ICON.gear}</button></span>`;
     const meter = (label, w) => {
       if (!w || w.utilization == null) return '';
@@ -313,6 +453,7 @@ const Classic = {
     main.innerHTML = `
       <div class="head mobile-only" style="border:0;padding-bottom:0"><button class="icon-btn" data-side>${ICON.menu}</button></div>
       <div class="page"><div class="page-inner">
+        <div class="home-spark">${SPARK}</div>
         <div class="eyebrow">${esc(greeting())}</div>
         <h1 class="hero">What are we making?</h1>
         <p class="lede">Start a session in any folder, or pick up one you left open.</p>
@@ -510,6 +651,12 @@ const Classic = {
     el.style.color = version ? 'var(--ok)' : 'var(--bad)';
   },
 };
+
+function toggleSidebar() {
+  const app = $('#app');
+  app.classList.toggle('side-collapsed');
+  store.set('sideCollapsed', app.classList.contains('side-collapsed'));
+}
 
 function sessionSub(s) {
   if (s.status === 'working') return { cls: '', text: (panes.get(s.id)?.activity) || 'working…' };

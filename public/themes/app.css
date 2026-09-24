@@ -1,0 +1,213 @@
+/* The App layout: the classic layout restyled to look like the Claude Code app.
+   A flat sidebar, one wide conversation column, your messages as bubbles on the
+   right, and the session settings in a row under the composer. Colours still come
+   from the palette (clay / claylight by default). */
+
+.layout-app { font-weight: 400; font-size: 14px; }
+.composer-ctl, .limit-banner, .home-spark, .tf-copy, .activity .spark { display: none; }
+.layout-app .composer-ctl, .layout-app .limit-banner { display: flex; }
+
+/* ------------------------------------------------------------ shell */
+
+.layout-app .app { grid-template-columns: 288px minmax(0, 1fr) 320px; gap: 0; padding: 0; }
+.layout-app .app.no-tray { grid-template-columns: 288px minmax(0, 1fr); }
+.layout-app .app.side-collapsed { grid-template-columns: minmax(0, 1fr) 320px; }
+.layout-app .app.side-collapsed.no-tray { grid-template-columns: minmax(0, 1fr); }
+.layout-app .app.side-collapsed .side { display: none; }
+.layout-app .side, .layout-app .main, .layout-app .tray { border: 0; border-radius: 0; box-shadow: none; }
+.layout-app .side { background: var(--bg); border-right: 1px solid var(--line); }
+.layout-app .main { background: var(--panel); }
+.layout-app .tray { background: var(--bg); border-left: 1px solid var(--line); padding: 14px; }
+
+/* ------------------------------------------------------------ sidebar */
+
+.as-head { display: flex; align-items: center; gap: 2px; padding: 10px 10px 6px; }
+.as-head .brand-demo { margin-left: auto; }
+.layout-app .icon-btn { border-radius: 8px; color: var(--fg-2); }
+.layout-app .icon-btn:hover { background: var(--raised); color: var(--fg); }
+.layout-app .icon-btn svg { width: 16px; height: 16px; }
+
+.as-search { display: flex; align-items: center; gap: 8px; margin: 4px 10px 8px; padding: 0 10px; height: 34px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--panel); color: var(--fg-3); }
+.as-search:focus-within { border-color: var(--fg-3); }
+.as-search input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: var(--fg); font-size: 14px; }
+.as-search input::placeholder { color: var(--fg-3); }
+
+.as-nav { display: flex; flex-direction: column; padding: 2px 8px 6px; }
+.as-nav button { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 8px; color: var(--fg); font-size: 14px; text-align: left; }
+.as-nav button:hover { background: var(--raised); }
+.as-nav button svg { width: 16px; height: 16px; color: var(--fg-2); }
+.as-nav button:first-child svg { background: var(--raised); border-radius: 50%; padding: 2px; width: 20px; height: 20px; margin-left: -2px; }
+.as-nav kbd { margin-left: auto; opacity: 0; font-size: 10.5px; transition: opacity .12s ease; }
+.as-nav button:hover kbd { opacity: .6; }
+
+.layout-app .side-scroll { padding: 8px 8px 12px; }
+.as-group { margin-bottom: 12px; }
+.as-gname { display: flex; align-items: center; justify-content: space-between; padding: 6px 4px 4px 12px; font-size: 13.5px; color: var(--fg-3); }
+.as-gname span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.as-gname .icon-btn { width: 24px; height: 24px; opacity: .8; }
+.as-gname .icon-btn svg { width: 14px; height: 14px; }
+.as-item { position: relative; display: flex; align-items: center; gap: 12px; height: 34px; padding: 0 8px 0 14px; border-radius: 8px; font-size: 14px; color: var(--fg); cursor: pointer; }
+.as-item:hover { background: color-mix(in srgb, var(--raised) 70%, transparent); }
+.as-item.active { background: var(--raised); }
+.as-item.away, .as-item.theirs { color: var(--fg-2); }
+.as-t { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.as-item .s-close { opacity: 0; }
+.as-item:hover .s-close { opacity: 1; }
+.as-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; border: 1.5px solid var(--fg-3); }
+.as-dot.working { border-color: var(--info); background: var(--info); animation: pulse 1.6s infinite; }
+.as-dot.needs_you { border-color: var(--hot); background: var(--hot); animation: pulse-hot 1.2s infinite; }
+.as-dot.error { border-color: var(--bad); background: var(--bad); }
+.as-dot.done { border-color: var(--fg-2); }
+.as-more { display: block; padding: 4px 14px; font-size: 12.5px; color: var(--fg-3); }
+.as-more:hover { color: var(--fg); }
+
+/* usage, compact, above the account row */
+.layout-app .usage { margin: 0 10px 8px; padding: 10px 12px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); }
+.au-row { display: grid; grid-template-columns: 38px 1fr 34px; align-items: center; gap: 8px; font-size: 12px; color: var(--fg-2); }
+.au-row + .au-row { margin-top: 6px; }
+.au-bar { height: 5px; border-radius: 3px; background: var(--raised); overflow: hidden; }
+.au-bar i { display: block; height: 100%; border-radius: 3px; transition: width .5s ease; }
+.au-pct { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--fg); }
+.au-foot { margin-top: 6px; font-size: 11.5px; color: var(--fg-3); }
+.au-foot:empty { display: none; }
+
+.as-foot { display: flex; align-items: center; gap: 10px; padding: 10px 12px 12px; border-top: 1px solid var(--line); }
+.as-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--raised); display: grid; place-items: center; }
+.as-avatar .brand-mark { width: 16px; height: 16px; }
+.as-who { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.as-who b { font-weight: 600; font-size: 14px; }
+.as-who small { font-size: 11.5px; color: var(--fg-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ------------------------------------------------------------ title bar */
+
+.layout-app .head { align-items: center; gap: 8px; padding: 8px 12px; min-height: 48px; border-bottom: 0; }
+.ah-expand { display: none !important; }
+.layout-app .app.side-collapsed .ah-expand { display: inline-grid !important; }
+.ah-title { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }
+.ah-ico { color: var(--fg-2); display: inline-flex; }
+.ah-ico svg { width: 16px; height: 16px; }
+.ah-title .title-text { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; outline: none; border-radius: 4px; max-width: 46%; }
+.ah-title .title-text[contenteditable='true'] { background: var(--raised); padding: 0 6px; }
+.ah-chev { width: 24px !important; height: 24px !important; }
+.ah-chip { font-size: 12.5px; color: var(--fg-2); background: var(--raised); padding: 3px 9px; border-radius: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.ah-flag { font-size: 12px; font-weight: 600; color: var(--hot); }
+.ah-flag.err { color: var(--bad); }
+.layout-app .head-right { gap: 2px; flex-wrap: nowrap; }
+.layout-app .head-right .icon-btn.on { color: var(--fg); background: var(--raised); }
+
+/* ------------------------------------------------------------ conversation */
+
+.layout-app .log { max-width: 780px; padding: 12px 24px 40px; }
+.layout-app .prompt {
+  width: fit-content; max-width: 85%;
+  margin: 28px 0 18px auto;
+  padding: 10px 16px;
+  border: 0; border-radius: 14px;
+  background: var(--raised);
+  font-size: 15px; font-weight: 400; line-height: 1.55;
+}
+.layout-app .prompt:first-child { margin-top: 8px; }
+.layout-app .prompt .who { display: none; }
+.layout-app .say { font-size: 15.5px; line-height: 1.65; margin: 12px 0; }
+.layout-app .say strong, .layout-app .say th { font-weight: 700; }
+.layout-app .say h1, .layout-app .say h2, .layout-app .say h3, .layout-app .say h4 { font-weight: 700; }
+.layout-app .say code { color: var(--claude); background: var(--raised); font-size: .84em; }
+.layout-app .say pre { border-radius: 10px; }
+
+.layout-app .tool-row { font-size: 13.5px; padding: 5px 8px; color: var(--fg-2); }
+.layout-app .tool-ico { background: transparent; color: var(--fg-3); width: 18px; }
+.layout-app .tool-text b { font-weight: 600; }
+.layout-app .diff, .layout-app .tool-detail, .layout-app .decision { margin-left: 34px; }
+.layout-app .diff { border-radius: 10px; }
+
+.layout-app .route-row { margin: -8px 0 12px; justify-content: flex-end; }
+
+.layout-app .turn-foot { align-items: center; gap: 4px 10px; margin: 10px 0 6px; font-size: 12.5px; }
+.layout-app .turn-foot b { font-weight: 600; }
+.tf-copy { place-items: center; width: 26px; height: 26px; border-radius: 6px; color: var(--fg-3); margin-left: -6px; }
+.tf-copy:hover { background: var(--raised); color: var(--fg); }
+.layout-app .tf-copy { display: inline-grid; }
+
+.layout-app .activity { color: var(--fg-2); font-weight: 400; font-size: 14px; margin-top: 18px; }
+.layout-app .activity .dots { display: none; }
+.layout-app .activity .spark { display: block; width: 22px; height: 22px; animation: spark-spin 2.4s cubic-bezier(.5, 0, .5, 1) infinite; }
+@keyframes spark-spin { 0% { transform: rotate(0) scale(1); } 50% { transform: rotate(90deg) scale(.82); } 100% { transform: rotate(180deg) scale(1); } }
+
+.layout-app .ask { border-radius: 12px; background: color-mix(in srgb, var(--hot) 5%, var(--panel)); }
+.layout-app .ask-head { font-weight: 600; }
+.layout-app .btn { font-weight: 600; border-radius: 8px; }
+.layout-app .err-card { border-radius: 10px; }
+
+/* ------------------------------------------------------------ composer */
+
+.layout-app .composer { padding: 0 24px 14px; display: flex; flex-direction: column; align-items: center; }
+.layout-app .composer > * { width: 100%; max-width: 732px; }
+.layout-app .composer-box { border-radius: 14px; background: var(--raised); border-color: var(--line-strong); }
+.layout-app .composer-box:focus-within { box-shadow: none; border-color: color-mix(in srgb, var(--fg-3) 70%, transparent); }
+.layout-app .composer textarea { font-size: 15px; font-weight: 400; min-height: 48px; }
+.layout-app .composer textarea::placeholder { font-weight: 400; }
+.layout-app .composer-box { display: flex; align-items: flex-end; }
+.layout-app .composer-row { flex: 1; min-width: 0; }
+.layout-app .composer textarea { padding: 13px 16px 12px; }
+.layout-app .composer-bar { padding: 0 8px 8px 0; }
+.layout-app .hints { display: none; }
+.layout-app .send-btn { width: 32px; height: 32px; padding: 0; border-radius: 8px; }
+.layout-app .send-btn svg { width: 16px; height: 16px; }
+.layout-app .send-btn:disabled { background: transparent; color: var(--fg-3); opacity: 1; }
+.layout-app .send-btn.stop { background: var(--fg); color: var(--panel); }
+
+.limit-banner { align-items: center; gap: 10px; margin-bottom: -6px; padding: 9px 12px 15px; border-radius: 12px 12px 0 0; background: var(--panel-2); border: 1px solid var(--line); border-bottom: 0; font-size: 13.5px; }
+.limit-banner b { font-weight: 600; }
+.limit-banner .dim { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.limit-banner .icon-btn { width: 24px; height: 24px; }
+.lb-ring { --p: 0; width: 16px; height: 16px; border-radius: 50%; flex: none; background: conic-gradient(var(--c) calc(var(--p) * 1%), var(--raised-2) 0); -webkit-mask: radial-gradient(circle, transparent 4px, #000 4.5px); mask: radial-gradient(circle, transparent 4px, #000 4.5px); }
+
+.composer-ctl { align-items: center; justify-content: space-between; gap: 10px; padding: 6px 2px 0; }
+.ctl-left, .ctl-right { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.ctl { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 9px; border-radius: 8px; font-size: 13.5px; color: var(--fg-2); white-space: nowrap; }
+.ctl:hover { background: var(--raised); color: var(--fg); }
+.ctl svg { width: 14px; height: 14px; }
+.ctl-icon { width: 30px; padding: 0; justify-content: center; }
+.ctl.on { color: var(--accent); }
+.ctl.on.lean { color: var(--ok); }
+.ctl.perm-bypassPermissions { color: var(--bad); }
+.ctl.perm-plan { color: var(--info); }
+.ctl-right .ctl { color: var(--fg); }
+.ctl-meta { font-size: 12.5px; color: var(--fg-3); font-variant-numeric: tabular-nums; padding: 0 6px; }
+.auto-tag { font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 5px; color: var(--info); background: color-mix(in srgb, var(--info) 15%, transparent); }
+.composer-ctl .ctx-ring { width: 16px; height: 16px; }
+.composer-ctl .ctx-ring::after { inset: 3.5px; background: var(--panel); }
+.composer-ctl .ctl:hover .ctx-ring::after { background: var(--raised); }
+
+.layout-app .pop { border-radius: 12px; }
+.layout-app .menu { border-radius: 12px; padding: 6px; }
+.layout-app .menu button { border-radius: 8px; }
+.layout-app .menu .m-main { font-weight: 500; }
+
+/* ------------------------------------------------------------ home */
+
+.layout-app .page-inner { max-width: 732px; padding-top: 16vh; text-align: center; }
+.layout-app .home-spark { display: flex; justify-content: center; margin-bottom: 10px; }
+.layout-app .home-spark .spark { width: 34px; height: 34px; }
+.layout-app .eyebrow { color: var(--fg-3); font-weight: 500; font-size: 14px; }
+.layout-app .hero { font-weight: 700; font-size: clamp(28px, 3.6vw, 40px); letter-spacing: -0.025em; margin: 6px 0 8px; }
+.layout-app .lede { margin: 0 auto 26px; font-size: 15px; }
+.layout-app .starter { text-align: left; border-radius: 14px; background: var(--raised); padding: 4px; }
+.layout-app .starter textarea { font-weight: 400; font-size: 15.5px; }
+.layout-app .starter textarea::placeholder { font-weight: 400; }
+.layout-app .tip { justify-content: center; }
+.layout-app #home-lists { text-align: left; }
+
+/* settings and cards: flatter, lighter type */
+.layout-app .set-group > h2, .layout-app .card-head h3 { font-weight: 700; }
+.layout-app .page-inner:has(.set-group) { text-align: left; padding-top: 48px; }
+.layout-app .card { border-radius: 12px; background: var(--panel); }
+.layout-app .tray .card { background: var(--panel); }
+.layout-app .dock { border-top: 1px solid var(--line); }
+
+/* lighter type in the side panel and home lists, like the app */
+.layout-app .tray, .layout-app #home-lists { font-weight: 400; }
+.layout-app .tray :is(dt, li, .fn, .legend span, .card-head .count, .todo span), .layout-app #home-lists :is(.top, .sub, .ago, .last, td, span) { font-weight: 400; }
+.layout-app .tray :is(dd, .legend b, .cost-big), .layout-app #home-lists :is(.section-title, .t, .nm, th) { font-weight: 600; }
+.layout-app .tray .stats dt { color: var(--fg-2); }
+.layout-app .starter-bar .btn { font-weight: 500; }

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0
+
+- **App layout.** A new pair of themes, App and App Light, that look like the Claude Code app: a flat sidebar with sessions grouped by folder (a + on each folder starts a new one there), a search box, a slim title bar with the folder and branch, your messages as bubbles on the right, and the session settings in a row under the composer: permission mode, crew or solo, lean, then the model, effort and a context ring on the right. desk's extras sit where they fit: this session's cost next to the model, the 5-hour and weekly bars above the account row, an "Approaching weekly usage limit" banner over the composer, and auto route's pick under each message. The side panel with to-dos, changes and stats is one click away (top right) and starts closed. Pick it from the theme switcher.
+- Every reply now has a copy button and a timestamp in its footer (App layout).
+- The App layout uses a sans serif font: if your interface font is a monospace one, it uses Inter there instead.
+
 ## 0.7.0
 
 - **Auto route.** Before each message, Haiku reads it and picks a level: easy (Sonnet medium), normal (Sonnet high), think (Opus medium, for "what should I do" questions) or hard (Opus high). Each pick takes about two seconds and costs about $0.002. The transcript shows what it picked and why, under your message. Short replies like "ok" or "go" skip the router. Once a conversation passes 40k tokens of context, it only steps up, because a switch re-reads the whole conversation without the cache. On by default for new sessions; the model pill in the header turns it off for a session, and so does picking a model yourself. Change which model each level uses in Edit the routes (from that pill, Settings or the Riced launcher).

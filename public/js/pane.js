@@ -120,14 +120,14 @@ class Pane {
     this.el.innerHTML = `<div class="pane-in">
       <header class="head"></header>
       <div class="scroll"><div class="log"><div class="items"></div><div class="live"></div><div class="tail"></div></div></div>
-      <div class="composer"><div class="composer-box">
+      <div class="composer"><div class="limit-banner" hidden></div><div class="composer-box">
         <div class="pop" hidden></div>
         <div class="composer-row"><span class="prompt-sign">❯</span><textarea rows="1" spellcheck="true"></textarea></div>
         <div class="composer-bar">
           <div class="hints"><span><kbd>⏎</kbd>send</span><span><kbd>⇧⏎</kbd>new line</span><span><kbd>/</kbd>commands</span><span><kbd>@</kbd>files</span></div>
           <button class="btn primary send-btn">Send</button>
         </div>
-      </div></div>
+      </div><div class="composer-ctl"></div></div>
     </div>`;
     const q = (sel) => this.el.querySelector(sel);
     this.$head = q('.head');
@@ -138,6 +138,8 @@ class Pane {
     this.$ta = q('textarea');
     this.$btn = q('.send-btn');
     this.$pop = q('.pop');
+    this.$ctl = q('.composer-ctl');
+    this.$banner = q('.limit-banner');
     this.reset();
     this.wireComposer();
     this.el.addEventListener('mousedown', () => { if (typeof onPaneFocus === 'function') onPaneFocus(this); });
@@ -241,6 +243,7 @@ class Pane {
   renderHead() {
     const s = this.s;
     if (!s) return;
+    if (isApp()) return this.renderAppHead();
     const model = byId(MODELS, s.model);
     const effort = byId(EFFORTS, s.effort);
     const perm = byId(PERMS, s.permission);
@@ -270,16 +273,93 @@ class Pane {
         <button class="icon-btn" data-menu="more" title="More">${ICON.more}</button>
         <button class="icon-btn win-close" data-winclose title="Put away (${esc(Keys.label('close'))})">${ICON.x}</button>
       </div>`;
-    this.$head.onclick = (e) => {
-      const t = e.target.closest('[data-menu],[data-tray],[data-ctx],[data-side],[data-winclose],[data-lean],.rename');
+    this.$head.onclick = (e) => this.onHeadClick(e);
+  }
+
+  // The App layout: a slim title bar on top, and the session's settings in a row
+  // under the composer, the way the Claude Code app lays them out.
+  renderAppHead() {
+    const s = this.s;
+    const m = this.m;
+    const perm = byId(PERMS, s.permission);
+    const pct = this.ctxPct();
+    const label = modelLabel(m.modelName && m.modelName.includes(s.model) ? m.modelName : s.modelName && s.modelName.includes(s.model) ? s.modelName : '', (byId(MODELS, s.model) || {}).name || s.model);
+    const effort = s.effort ? s.effort === 'xhigh' ? 'Extra high' : s.effort[0].toUpperCase() + s.effort.slice(1) : 'Default effort';
+    const trayShown = !$('#app').classList.contains('no-tray');
+    this.$head.innerHTML = `
+      <button class="icon-btn ah-expand" data-expand title="Show sidebar">${ICON.sidebar}</button>
+      <div class="ah-title">
+        <span class="ah-ico">${ICON.folder}</span>
+        <span class="title-text" title="Double-click to rename">${esc(s.title)}</span>
+        <button class="icon-btn ah-chev" data-menu="more" title="Session menu">${ICON.down}</button>
+        <span class="ah-chip" title="${esc(s.cwd)}">${esc(baseName(s.cwd))}${this.branch ? ` · ${esc(this.branch)}` : ''}</span>
+        ${s.status === 'needs_you' ? '<span class="ah-flag">needs you</span>' : s.status === 'error' ? '<span class="ah-flag err">error</span>' : ''}
+      </div>
+      <div class="head-right">
+        <button class="icon-btn" data-dockbtn title="Terminal (${esc(Keys.label('terminal'))})">${ICON.term}</button>
+        <button class="icon-btn ${trayShown ? 'on' : ''}" data-tray title="Session info (${esc(Keys.label('info'))})">${ICON.panel}</button>
+        <button class="icon-btn" data-menu="more" title="More">${ICON.more}</button>
+      </div>`;
+    const title = $('.title-text', this.$head);
+    title.ondblclick = () => this.startRename();
+    this.$ctl.innerHTML = `
+      <div class="ctl-left">
+        <button class="ctl ctl-icon" data-at title="Mention a file (@)">${ICON.plus}</button>
+        <button class="ctl perm-${s.permission}" data-menu="perm" title="${esc(perm ? perm.sub : '')}">${esc(perm ? perm.name[0].toUpperCase() + perm.name.slice(1) : s.permission)}${ICON.down}</button>
+        <button class="ctl ${s.crew ? 'on' : ''}" data-menu="crew" title="Crew: a planner hands tasks to helpers at different levels">${ICON.agent}${s.crew ? 'Crew' : 'Solo'}</button>
+        <button class="ctl ${s.lean ? 'on lean' : ''}" data-lean title="Lean: only file and shell tools, so every step sends a much smaller prompt">${s.lean ? 'Lean' : 'Full tools'}</button>
+      </div>
+      <div class="ctl-right">
+        ${m.cost ? `<span class="ctl-meta" title="This session so far, at API prices">${fmtCost(m.cost)}</span>` : ''}
+        ${s.auto && !s.crew
+          ? `<button class="ctl ctl-auto" data-menu="auto" title="Auto route: Haiku picks the model and effort for each message${s.routeLevel ? '. Last pick: ' + esc(s.routeLevel) : ''}"><span class="auto-tag">Auto</span>${esc(label)}</button><button class="ctl" data-menu="auto">${esc(effort)}</button>`
+          : `<button class="ctl" data-menu="model">${esc(label)}</button><button class="ctl" data-menu="effort">${esc(effort)}</button>`}
+        <button class="ctl ctl-icon" data-ctx title="${pct == null ? 'Context' : pct + '% of context used'}"><span class="ctx-ring" style="--p:${pct || 0};--c:${levelColor(pct || 0)}"></span></button>
+      </div>`;
+    this.$head.onclick = this.$ctl.onclick = (e) => this.onHeadClick(e);
+    this.renderBanner();
+  }
+
+  // "Approaching weekly usage limit", above the composer, like the app shows it.
+  renderBanner() {
+    const el = this.$banner;
+    if (!isApp() || !st.usage) { el.hidden = true; return; }
+    const u = st.usage;
+    const pick = [['weekly', u.seven_day, 0.75], ['5-hour', u.five_hour, 0.85]].find(([, w, at]) => w && w.utilization >= at);
+    if (!pick) { el.hidden = true; return; }
+    const [name, w] = pick;
+    const key = 'banner:' + name + ':' + (w.resetsAt || '');
+    if (store.get(key, false)) { el.hidden = true; return; }
+    const pct = Math.round(w.utilization * 100);
+    const when = w.resetsAt ? new Date(w.resetsAt * 1000).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+    el.hidden = false;
+    el.innerHTML = `<span class="lb-ring" style="--p:${pct};--c:${levelColor(pct)}"></span><b>${pct >= 100 ? 'Hit' : 'Approaching'} ${name} usage limit</b><span class="dim">${pct}% used${when ? ' · resets ' + esc(when) : ''}</span><button class="icon-btn" data-dismiss title="Hide until it resets">${ICON.x}</button>`;
+    $('[data-dismiss]', el).onclick = () => { store.set(key, true); el.hidden = true; };
+  }
+
+  onHeadClick(e) {
+    {
+      const t = e.target.closest('[data-menu],[data-tray],[data-ctx],[data-side],[data-winclose],[data-lean],[data-expand],[data-dockbtn],[data-at],.rename');
       if (!t) return;
       if (t.dataset.lean !== undefined) return this.patch({ lean: !this.s.lean });
+      if (t.dataset.expand !== undefined) return toggleSidebar();
+      if (t.dataset.dockbtn !== undefined) return L.toggleDock && L.toggleDock();
+      if (t.dataset.at !== undefined) {
+        const ta = this.$ta;
+        const pos = ta.selectionStart ?? ta.value.length;
+        const before = ta.value.slice(0, pos);
+        ta.value = before + (before && !/\s$/.test(before) ? ' @' : '@') + ta.value.slice(pos);
+        ta.focus();
+        ta.selectionStart = ta.selectionEnd = pos + (before && !/\s$/.test(before) ? 2 : 1);
+        ta.dispatchEvent(new Event('input'));
+        return;
+      }
       if (t.classList.contains('rename')) return this.startRename();
       if (t.dataset.side !== undefined) return $('#app').classList.add('side-open');
       if (t.dataset.winclose !== undefined) return putAway(this.id);
       if (t.dataset.tray !== undefined || t.dataset.ctx !== undefined) return toggleInfo();
       this.openMenu(t, t.dataset.menu);
-    };
+    }
   }
 
   startRename() {
@@ -320,6 +400,7 @@ class Pane {
       { id: 'edit', main: 'Edit the crew…', sub: 'Levels, models, effort, stats' },
     ];
     else items = [
+      ...(isApp() ? [{ id: 'rename', main: 'Rename' }] : []),
       { id: 'copy-resume', main: 'Copy terminal command', sub: `claude --resume ${s.sessionId.slice(0, 8)}…` },
       { id: 'copy-path', main: 'Copy folder path' },
       { id: 'close', main: 'Put away', sub: 'Hide it, keep the history' },
@@ -334,6 +415,7 @@ class Pane {
       else if (kind === 'perm') await this.patch({ permission: id });
       else if (id === 'copy-resume') copy(`cd "${s.cwd}" && claude --resume ${s.sessionId}`, 'Command copied');
       else if (id === 'copy-path') copy(s.cwd, 'Path copied');
+      else if (id === 'rename') this.startRename();
       else if (id === 'close') putAway(s.id);
       else if (id === 'delete') {
         if (!confirm(`Delete "${s.title}" from desk?`)) return;
@@ -539,7 +621,15 @@ class Pane {
       if (ev.steps) bits.push(`${ev.steps} step${ev.steps === 1 ? '' : 's'}`);
       if (out) bits.push(`${fmtTokens(out)} tokens out`);
       if (ev.subtype === 'error_during_execution') bits.push('stopped');
-      if (bits.length) this.add(`<div class="turn-foot">${bits.join('<span>·</span>')}</div>`);
+      if (ev.ts) bits.push(`<time title="${esc(new Date(ev.ts).toLocaleString())}">${esc(ago(ev.ts))}</time>`);
+      if (bits.length) {
+        const foot = this.add(`<div class="turn-foot"><button class="tf-copy" title="Copy reply">${ICON.copy}</button>${bits.join('<span>·</span>')}</div>`);
+        $('.tf-copy', foot).onclick = () => {
+          const parts = [];
+          for (let el = foot.previousElementSibling; el && !el.classList.contains('prompt'); el = el.previousElementSibling) if (el.classList.contains('say')) parts.unshift(el.innerText);
+          copy(parts.join('\n\n'), 'Reply copied');
+        };
+      }
     }
   }
 
@@ -641,7 +731,7 @@ class Pane {
     if (!s) return;
     let el = $('.activity', this.$tail);
     if (s.status !== 'working') { el?.remove(); return; }
-    if (!el) { this.$tail.insertAdjacentHTML('afterbegin', `<div class="activity"><span class="dots"><i></i><i></i><i></i></span><span></span></div>`); el = $('.activity', this.$tail); }
+    if (!el) { this.$tail.insertAdjacentHTML('afterbegin', `<div class="activity">${SPARK}<span class="dots"><i></i><i></i><i></i></span><span></span></div>`); el = $('.activity', this.$tail); }
     el.lastElementChild.textContent = this.activity || 'Working';
     if (typeof refreshAgos === 'function') refreshAgos();
   }
@@ -867,8 +957,9 @@ class Pane {
     if (!s) return;
     const busy = s.status === 'working' || s.status === 'needs_you';
     const hasText = !!this.$ta.value.trim();
-    if (busy && !hasText) { this.$btn.className = 'btn stop send-btn'; this.$btn.textContent = 'Stop'; this.$btn.disabled = false; }
-    else { this.$btn.className = 'btn primary send-btn'; this.$btn.textContent = busy ? 'Queue' : 'Send'; this.$btn.disabled = !hasText; }
+    const app = isApp();
+    if (busy && !hasText) { this.$btn.className = 'btn stop send-btn'; this.$btn.innerHTML = app ? ICON.stop : 'Stop'; this.$btn.title = 'Stop'; this.$btn.disabled = false; }
+    else { this.$btn.className = 'btn primary send-btn'; this.$btn.innerHTML = app ? ICON.send : busy ? 'Queue' : 'Send'; this.$btn.title = busy ? 'Queue' : 'Send'; this.$btn.disabled = !hasText; }
     this.$ta.placeholder = busy ? 'Claude is on it. Type to queue a follow-up…' : 'What are we making?';
   }
 }
